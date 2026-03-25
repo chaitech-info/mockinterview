@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Notion-ish light theme (neutral + soft surfaces) */
+  --background: 0 0% 99%;
+  --foreground: 222.2 47% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+
+  /* Black & white primary */
+  --primary: 222.2 47% 11%;
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 210 25% 96.5%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+
+  --muted: 210 25% 96.5%;
+  --muted-foreground: 215 16% 44%;
+
+  --accent: 210 25% 96.5%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 220 14% 90%;
+  --input: 220 14% 90%;
+  --ring: 222.2 47% 11%;
+
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@keyframes wave {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@layer utilities {
+  .animate-wave {
+    transform-origin: bottom;
+    animation: wave 900ms ease-in-out infinite;
+  }
+
+  .animate-fade-up {
+    animation: fade-up 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .animate-fade-up-delayed {
+    animation: fade-up 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 140ms both;
+  }
+
+  .animate-fade-up-delayed2 {
+    animation: fade-up 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 260ms both;
+  }
+
+  .animate-float-soft {
+    animation: float-soft 5.5s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-wave,
+  .animate-fade-up,
+  .animate-fade-up-delayed,
+  .animate-fade-up-delayed2,
+  .animate-float-soft {
+    animation: none !important;
+  }
+}
