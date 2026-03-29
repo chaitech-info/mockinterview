@@ -6,6 +6,17 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 
 const NEXT_KEY = "prepai_auth_next";
 
+/**
+ * OAuth redirect must use your real public origin. Set NEXT_PUBLIC_SITE_URL in
+ * Vercel (e.g. https://mockinterview.info) so Google sign-in returns there, not
+ * localhost — Supabase also needs this URL in Authentication → Redirect URLs.
+ */
+function oauthRedirectOrigin(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+  if (fromEnv) return fromEnv;
+  return window.location.origin;
+}
+
 function safeNextPath(next?: string) {
   if (!next) return "/";
   if (!next.startsWith("/")) return "/";
@@ -32,7 +43,7 @@ export async function signInWithGoogle(next?: string) {
     // ignore
   }
 
-  const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+  const redirectTo = `${oauthRedirectOrigin()}/auth/callback?next=${encodeURIComponent(
     nextPath
   )}`;
 
