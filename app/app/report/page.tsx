@@ -8,6 +8,7 @@ import { Stepper } from "@/components/Stepper";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { track } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 import { questionScoresMock, reportMock } from "@/lib/mock-data";
 
@@ -22,6 +23,7 @@ export default function ReportPage() {
 
   function downloadPdfMock() {
     setDownloading(true);
+    void track("report_download_pdf");
     window.setTimeout(() => {
       setDownloading(false);
       window.alert("Mock download: PDF report generated.");
@@ -71,7 +73,7 @@ export default function ReportPage() {
                     key={s}
                     className="rounded-xl border border-border bg-background p-4"
                   >
-                    <div className="border-l-4 border-emerald-500 pl-3 text-sm font-medium">
+                    <div className="border-l-4 border-foreground pl-3 text-sm font-medium">
                       {s}
                     </div>
                   </div>
@@ -89,7 +91,7 @@ export default function ReportPage() {
                     key={s}
                     className="rounded-xl border border-border bg-background p-4"
                   >
-                    <div className="border-l-4 border-amber-500 pl-3 text-sm font-medium">
+                    <div className="border-l-4 border-muted-foreground/40 pl-3 text-sm font-medium">
                       {s}
                     </div>
                   </div>
@@ -170,7 +172,10 @@ export default function ReportPage() {
                   {downloading ? "Preparing PDF…" : "Download PDF report"}
                 </Button>
                 <Button asChild size="lg" variant="outline">
-                  <a href="/app/intake">
+                  <a
+                    href="/app/intake"
+                    onClick={() => void track("report_start_new_session")}
+                  >
                     <RotateCcw className="h-4 w-4" />
                     Start a new session
                   </a>

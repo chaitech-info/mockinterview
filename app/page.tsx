@@ -1,10 +1,21 @@
-import { ArrowRight, Mic, Star } from "lucide-react";
+"use client";
 
+import {
+  ArrowRight,
+  BrainCircuit,
+  FileText,
+  Mic,
+  Sparkles,
+  Star,
+} from "lucide-react";
+
+import { AuthButton } from "@/components/AuthButton";
 import { PricingCard } from "@/components/PricingCard";
 import { Waveform } from "@/components/Waveform";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { track } from "@/lib/firebase/client";
 
 function Container({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto w-full max-w-7xl px-4 sm:px-6">{children}</div>;
@@ -56,7 +67,7 @@ function HeroMockup() {
         <div className="text-sm font-semibold leading-snug">
           Align multiple stakeholders on a controversial product decision. What did you do, and what happened?
         </div>
-        <Waveform active className="bg-background" />
+        <Waveform isAnimating className="bg-background" />
         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="inline-flex items-center gap-2">
             <Mic className="h-3.5 w-3.5" />
@@ -83,11 +94,22 @@ export default function Home() {
             </a>
             <div className="flex items-center gap-2">
               <Button asChild variant="ghost">
-                <a href="#pricing">Pricing</a>
+                <a
+                  href="#pricing"
+                  onClick={() => void track("landing_click_pricing")}
+                >
+                  Pricing
+                </a>
               </Button>
               <Button asChild>
-                <a href="/app/intake">Try free — no signup</a>
+                <a
+                  href="/app/intake"
+                  onClick={() => void track("landing_click_try_free")}
+                >
+                  Try free — no signup
+                </a>
               </Button>
+              <AuthButton />
             </div>
           </div>
         </Container>
@@ -114,12 +136,20 @@ export default function Home() {
 
                 <div className="animate-fade-up-delayed2 flex flex-col gap-3 sm:flex-row">
                   <Button asChild size="lg">
-                    <a href="/app/intake">
+                    <a
+                      href="/app/intake"
+                      onClick={() => void track("landing_click_try_free")}
+                    >
                       Try free — no signup <ArrowRight className="ml-1 h-4 w-4" />
                     </a>
                   </Button>
                   <Button asChild size="lg" variant="outline">
-                    <a href="#how-it-works">See how it works</a>
+                    <a
+                      href="#how-it-works"
+                      onClick={() => void track("landing_click_see_how_it_works")}
+                    >
+                      See how it works
+                    </a>
                   </Button>
                 </div>
 
@@ -160,7 +190,12 @@ export default function Home() {
               <div className="mt-10 grid gap-6 md:grid-cols-3">
                 <Card className="group shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <CardHeader className="space-y-2">
-                    <CardTitle className="text-lg">Paste any job description</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background">
+                        <Sparkles className="h-5 w-5 text-foreground" />
+                      </div>
+                      <CardTitle className="text-lg">Paste any job description</CardTitle>
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       AI extracts role, skills, seniority in seconds
                     </div>
@@ -171,7 +206,12 @@ export default function Home() {
                 </Card>
                 <Card className="group shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <CardHeader className="space-y-2">
-                    <CardTitle className="text-lg">Practice with your voice</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background">
+                        <BrainCircuit className="h-5 w-5 text-foreground" />
+                      </div>
+                      <CardTitle className="text-lg">Practice with your voice</CardTitle>
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       Real interview simulation, not just flashcards
                     </div>
@@ -182,7 +222,12 @@ export default function Home() {
                 </Card>
                 <Card className="group shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <CardHeader className="space-y-2">
-                    <CardTitle className="text-lg">Get a scored PDF report</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background">
+                        <FileText className="h-5 w-5 text-foreground" />
+                      </div>
+                      <CardTitle className="text-lg">Get a scored PDF report</CardTitle>
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       Strengths, weaknesses, study plan delivered to your inbox
                     </div>
@@ -206,22 +251,30 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="mt-10 grid gap-4 sm:grid-cols-3 sm:gap-6">
                 {[
                   { step: "1", title: "Paste the job description" },
                   { step: "2", title: "Answer questions out loud" },
                   { step: "3", title: "Get your report" },
-                ].map((s) => (
-                  <Card key={s.step} className="shadow-sm transition-all duration-300 hover:shadow-md">
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background">
-                          {s.step}
+                ].map((s, idx, arr) => (
+                  <div key={s.step} className="relative">
+                    {idx < arr.length - 1 ? (
+                      <div
+                        aria-hidden
+                        className="absolute right-[-18px] top-1/2 hidden h-px w-9 bg-border sm:block"
+                      />
+                    ) : null}
+                    <Card className="shadow-sm transition-all duration-300 hover:shadow-md">
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background">
+                            {s.step}
+                          </div>
+                          <div className="text-base font-semibold">{s.title}</div>
                         </div>
-                        <div className="text-base font-semibold">{s.title}</div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </div>
                 ))}
               </div>
             </div>

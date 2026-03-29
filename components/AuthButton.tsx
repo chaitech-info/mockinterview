@@ -1,0 +1,173 @@
+"use client";
+
+import * as React from "react";
+import { LogIn, LogOut } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { track } from "@/lib/firebase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { popNextPath, signInWithGoogle, signOut } from "@/lib/supabase/auth";
+import { clearUser, saveUser } from "@/lib/user-store";
+
+type UserState =
+  | { status: "loading" }
+  | { status: "signed_out" }
+  | {
+      status: "signed_in";
+      email: string | null;
+      name: string | null;
+      avatarUrl: string | null;
+    };
+
+type UserMetadata = Record<string, unknown>;
+
+function getUserProfile(user: { email?: string | null; user_metadata?: UserMetadata }) {
+  const meta = user.user_metadata ?? {};
+  const name =
+    (typeof meta.full_name === "string" ? meta.full_name : null) ??
+    (typeof meta.name === "string" ? meta.name : null) ??
+    (typeof meta.user_name === "string" ? meta.user_name : null) ??
+    (typeof meta.preferred_username === "string" ? meta.preferred_username : null) ??
+    null;
+  const avatarUrl =
+    (typeof meta.avatar_url === "string" ? meta.avatar_url : null) ??
+    (typeof meta.picture === "string" ? meta.picture : null) ??
+    null;
+  const email = user.email ?? null;
+  return { email, name, avatarUrl };
+}
+
+export function AuthButton() {
+  const [state, setState] = React.useState<UserState>({ status: "loading" });
+  const [authError, setAuthError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const supabase = getSupabaseClient();
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        const user = data.session?.user ?? null;
+        const profile = user ? getUserProfile(user) : null;
+        setState(
+          data.session && profile
+            ? { status: "signed_in", ...profile }
+            : { status: "signed_out" }
+        );
+        if (data.session && user && profile) {
+          saveUser({
+            id: user.id,
+            email: profile.email,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+          });
+        }
+      })
+      .catch(() => setState({ status: "signed_out" }));
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null;
+      const profile = user ? getUserProfile(user) : null;
+      setState(session && profile ? { status: "signed_in", ...profile } : { status: "signed_out" });
+
+      if (_event === "SIGNED_IN") {
+        void track("auth_signed_in");
+        if (user && profile) {
+          saveUser({
+            id: user.id,
+            email: profile.email,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+          });
+        }
+        const stored = popNextPath();
+        if (stored && stored !== window.location.pathname + window.location.search) {
+          window.location.assign(stored);
+        }
+      }
+
+      if (_event === "SIGNED_OUT") {
+        void track("auth_signed_out");
+        clearUser();
+      }
+    });
+
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  if (state.status === "loading") {
+    return (
+      <Button variant="outline" disabled>
+        <LogIn className="h-4 w-4" />
+        Sign in
+      </Button>
+    );
+  }
+
+  if (state.status === "signed_in") {
+    const label = state.name ?? state.email ?? "Signed in";
+    return (
+      <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 sm:flex">
+          {state.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={state.avatarUrl}
+              alt={label}
+              className="h-8 w-8 rounded-full border border-border object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-foreground">
+              {(label[0] ?? "U").toUpperCase()}
+            </div>
+          )}
+          <div className="max-w-[180px] truncate text-sm text-muted-foreground">
+            {label}
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          onClick={async () => {
+            void track("auth_sign_out_clicked");
+            await signOut();
+          }}
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        onClick={async () => {
+          setAuthError(null);
+          void track("auth_sign_in_google_clicked");
+          const params = new URLSearchParams(window.location.search);
+          const nextFromQuery = params.get("next");
+          const nextPath = nextFromQuery?.startsWith("/")
+            ? nextFromQuery
+            : window.location.pathname + window.location.search;
+          const { error } = await signInWithGoogle(nextPath);
+          if (error) {
+            setAuthError(error.message);
+            void track("auth_sign_in_error", { message: error.message });
+          }
+        }}
+      >
+        <LogIn className="h-4 w-4" />
+        Sign in
+      </Button>
+      {authError ? (
+        <div className="hidden max-w-[260px] truncate text-xs text-muted-foreground sm:block">
+          {authError}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+

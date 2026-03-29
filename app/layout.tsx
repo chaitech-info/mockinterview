@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { Inter } from "next/font/google";
 import "./globals.css";
+
+const FirebaseAnalytics = dynamic(
+  () => import("./FirebaseAnalytics").then((m) => ({ default: m.FirebaseAnalytics })),
+  { ssr: false }
+);
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,6 +29,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} min-h-screen font-sans antialiased`}
       >
+        <FirebaseAnalytics />
         {children}
       </body>
     </html>
