@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { track } from "@/lib/firebase/client";
+import { getIntakeWebhookUrl } from "@/lib/n8n-webhooks";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import type { IntakeResponse } from "@/lib/session-store";
@@ -71,18 +72,15 @@ export default function IntakePage() {
 
     try {
       clearActiveSession();
-      const res = await fetch(
-        "https://n8n.srv851223.hstgr.cloud/webhook-test/intake",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jd_text: jdText,
-            user_id: user.id,
-            user_email: user.email ?? "",
-          }),
-        }
-      );
+      const res = await fetch(getIntakeWebhookUrl(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jd_text: jdText,
+          user_id: user.id,
+          user_email: user.email ?? "",
+        }),
+      });
 
       if (!res.ok) throw new Error(`Intake failed (${res.status})`);
 

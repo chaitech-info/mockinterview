@@ -1,5 +1,6 @@
-export const ANSWER_WEBHOOK_URL =
-  "https://n8n.srv851223.hstgr.cloud/webhook-test/answer";
+import { getAnswerWebhookUrl } from "@/lib/n8n-webhooks";
+
+export { getAnswerWebhookUrl };
 
 export type AnswerWebhookResponse = {
   id: string;
@@ -187,7 +188,7 @@ export async function submitAnswerMultipart(params: {
   form.append("session_id", params.sessionId);
   form.append("question_id", String(params.questionId));
 
-  const res = await fetch(ANSWER_WEBHOOK_URL, {
+  const res = await fetch(getAnswerWebhookUrl(), {
     method: "POST",
     body: form,
   });
@@ -217,7 +218,7 @@ export async function submitAnswerMultipart(params: {
     const bodyPreview =
       text.length > maxPreview ? `${text.slice(0, maxPreview)}… (${text.length} chars total)` : text;
     console.groupCollapsed("[PrepAI] Answer webhook response");
-    console.log("URL:", ANSWER_WEBHOOK_URL);
+    console.log("URL:", getAnswerWebhookUrl());
     console.log("HTTP status:", res.status);
     console.log("Raw body (string):", bodyPreview);
     console.log("Parsed JSON:", json);
