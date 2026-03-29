@@ -53,7 +53,14 @@ export default function IntakePage() {
       window.setTimeout(() => setLoadingText("Generating your question bank..."), 2000)
     );
 
-    const supabase = getSupabaseClient();
+    let supabase;
+    try {
+      supabase = getSupabaseClient();
+    } catch {
+      setError("Sign-in is not configured on this deployment (Supabase env missing).");
+      setPhase("error");
+      return;
+    }
     const { data } = await supabase.auth.getUser();
     const user = data.user;
     if (!user) {

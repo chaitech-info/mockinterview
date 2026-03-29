@@ -6,8 +6,9 @@ import { getFirebaseClient } from "@/lib/firebase/client";
 
 export function FirebaseAnalytics() {
   React.useEffect(() => {
-    // Initialize analytics once on client
-    void getFirebaseClient();
+    void getFirebaseClient().catch(() => {
+      /* init failures are logged in getFirebaseClient; never reject to error overlay */
+    });
   }, []);
 
   return null;

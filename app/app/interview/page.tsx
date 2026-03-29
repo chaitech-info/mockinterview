@@ -16,7 +16,7 @@ import type { AnswerWebhookResponse } from "@/lib/interview/answer-api";
 import { extractExampleAnswerFromPayload, submitAnswerMultipart } from "@/lib/interview/answer-api";
 import { extensionForMime, pickAudioMimeType } from "@/lib/interview/recording";
 import { loadActiveSession } from "@/lib/session-store";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 
 type Phase = "idle" | "recording" | "thinking" | "feedback";
@@ -78,10 +78,18 @@ export default function InterviewPage() {
   const mimeRef = React.useRef<string>("");
 
   React.useEffect(() => {
-    const supabase = getSupabaseClient();
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) setRequiresLogin(true);
-    });
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabaseClient();
+        supabase.auth.getSession().then(({ data }) => {
+          if (!data.session) setRequiresLogin(true);
+        });
+      } catch {
+        setRequiresLogin(true);
+      }
+    } else {
+      setRequiresLogin(true);
+    }
 
     const stored = loadActiveSession();
     if (stored?.session_id) setSessionId(stored.session_id);
@@ -191,7 +199,14 @@ export default function InterviewPage() {
       return;
     }
 
-    const supabase = getSupabaseClient();
+    let supabase;
+    try {
+      supabase = getSupabaseClient();
+    } catch {
+      setSubmitError("Sign-in is not available (check Supabase env on this deployment).");
+      setPhase("idle");
+      return;
+    }
     const {
       data: { user },
       error: userErr,

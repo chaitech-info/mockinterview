@@ -1,5 +1,7 @@
 "use client";
 
+import type { AuthError } from "@supabase/supabase-js";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const NEXT_KEY = "prepai_auth_next";
@@ -12,7 +14,16 @@ function safeNextPath(next?: string) {
 }
 
 export async function signInWithGoogle(next?: string) {
-  const supabase = getSupabaseClient();
+  let supabase;
+  try {
+    supabase = getSupabaseClient();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      data: null,
+      error: { message: msg, name: "ConfigurationError" } as AuthError,
+    };
+  }
   const nextPath = safeNextPath(next);
 
   try {
@@ -33,8 +44,12 @@ export async function signInWithGoogle(next?: string) {
 }
 
 export async function signOut() {
-  const supabase = getSupabaseClient();
-  return await supabase.auth.signOut();
+  try {
+    const supabase = getSupabaseClient();
+    return await supabase.auth.signOut();
+  } catch (e) {
+    console.error("[PrepAI] signOut:", e);
+  }
 }
 
 export function popNextPath(): string | null {

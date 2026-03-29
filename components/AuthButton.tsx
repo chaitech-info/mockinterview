@@ -5,7 +5,7 @@ import { LogIn, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/firebase/client";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { popNextPath, signInWithGoogle, signOut } from "@/lib/supabase/auth";
 import { clearUser, saveUser } from "@/lib/user-store";
 
@@ -42,7 +42,21 @@ export function AuthButton() {
   const [authError, setAuthError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    const supabase = getSupabaseClient();
+    if (!isSupabaseConfigured()) {
+      setAuthError("Auth is not configured (missing Supabase env on this deployment).");
+      setState({ status: "signed_out" });
+      return;
+    }
+
+    let supabase: ReturnType<typeof getSupabaseClient>;
+    try {
+      supabase = getSupabaseClient();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not start Supabase client.";
+      setAuthError(msg);
+      setState({ status: "signed_out" });
+      return;
+    }
 
     supabase.auth
       .getSession()
@@ -163,9 +177,7 @@ export function AuthButton() {
         Sign in
       </Button>
       {authError ? (
-        <div className="hidden max-w-[260px] truncate text-xs text-muted-foreground sm:block">
-          {authError}
-        </div>
+        <div className="max-w-[min(100%,280px)] text-xs text-muted-foreground">{authError}</div>
       ) : null}
     </div>
   );
