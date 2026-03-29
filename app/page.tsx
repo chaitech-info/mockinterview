@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { AuthButton } from "@/components/AuthButton";
-import { PricingCard } from "@/components/PricingCard";
+import { PricingSection } from "@/components/PricingSection";
 import { Waveform } from "@/components/Waveform";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -284,46 +284,7 @@ export default function Home() {
         <section id="pricing" className="bg-gray-50 scroll-mt-24">
           <Container>
             <div className="py-16 lg:py-24">
-              <div className="flex flex-col gap-3">
-                <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Pricing</h2>
-                <p className="max-w-2xl text-muted-foreground">
-                  Start free. Upgrade when you want unlimited sessions and PDF reports.
-                </p>
-              </div>
-
-              <div className="mt-10 grid gap-6 lg:grid-cols-3">
-                <PricingCard
-                  title="Free"
-                  price="$0"
-                  features={["1 session/month", "5 questions", "No PDF report"]}
-                  ctaLabel="Try free — no signup"
-                  ctaHref="/app/intake"
-                />
-                <PricingCard
-                  title="Pro"
-                  price="$15/mo"
-                  highlighted
-                  features={[
-                    "Unlimited sessions",
-                    "All question types",
-                    "Voice coach",
-                    "PDF report",
-                  ]}
-                  ctaLabel="Start Pro"
-                  ctaHref="/app/intake"
-                />
-                <PricingCard
-                  title="Teams"
-                  price="$49/mo"
-                  features={[
-                    "Everything in Pro",
-                    "Team dashboard",
-                    "Bulk reports",
-                  ]}
-                  ctaLabel="Contact sales"
-                  ctaHref="#"
-                />
-              </div>
+              <PricingSection />
             </div>
           </Container>
         </section>
