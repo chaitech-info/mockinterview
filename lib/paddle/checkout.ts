@@ -3,9 +3,12 @@
 import {
   initializePaddle,
   CheckoutEventNames,
+  type CheckoutEventError,
   type Paddle,
   type PaddleEventData,
 } from "@paddle/paddle-js";
+
+import { track } from "@/lib/firebase/client";
 
 /** Must match the Paddle account + mode used to list `pri_…` IDs (sandbox vs live). */
 export type PaddleCheckoutEnvironment = "sandbox" | "production";
@@ -27,9 +30,51 @@ function clientTokenForEnvironment(env: PaddleCheckoutEnvironment): string | und
   return process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim();
 }
 
-function logCheckoutErrors(event: PaddleEventData) {
-  if (event?.name === CheckoutEventNames.CHECKOUT_ERROR) {
-    console.error("[Paddle] checkout.error", event);
+/** One-shot listener: first checkout.error / failed / payment.error after open. */
+const checkoutErrorSink: { current: ((event: PaddleEventData) => void) | null } = { current: null };
+
+function formatUserFacingCheckoutError(event: CheckoutEventError): string {
+  const lines: string[] = [];
+  if (event.detail?.trim()) lines.push(event.detail.trim());
+  else lines.push("Paddle checkout failed.");
+  if (event.code) lines.push(`Code: ${event.code}`);
+  if (event.documentation_url) lines.push(event.documentation_url);
+
+  lines.push(
+    "Common fixes: use a client token and price IDs from the same Paddle environment (sandbox vs live); " +
+      "in Paddle → Checkout → Checkout settings, set Default payment link and approve your website domain."
+  );
+
+  return lines.join("\n\n");
+}
+
+function paddleCheckoutEventCallback(event: PaddleEventData) {
+  const name = event?.name;
+  if (
+    name !== CheckoutEventNames.CHECKOUT_ERROR &&
+    name !== CheckoutEventNames.CHECKOUT_FAILED &&
+    name !== CheckoutEventNames.CHECKOUT_PAYMENT_ERROR
+  ) {
+    return;
+  }
+
+  const err = event as CheckoutEventError;
+  console.error(`[Paddle] ${String(name)}`, {
+    code: err.code,
+    detail: err.detail,
+    type: err.type,
+    documentation_url: err.documentation_url,
+  });
+
+  const sink = checkoutErrorSink.current;
+  checkoutErrorSink.current = null;
+  if (sink) {
+    void track("paddle_checkout_error", {
+      source: "paddle.event",
+      code: err.code,
+      message: err.detail?.slice(0, 400),
+    });
+    sink(event);
   }
 }
 
@@ -45,7 +90,7 @@ async function getPaddleForCheckout(env: PaddleCheckoutEnvironment): Promise<Pad
     version: "v1",
     environment: env,
     token,
-    eventCallback: logCheckoutErrors,
+    eventCallback: paddleCheckoutEventCallback,
   });
 }
 
@@ -77,9 +122,18 @@ export async function openPaddleCheckout(
 
   const origin = window.location.origin;
 
+  checkoutErrorSink.current = (event) => {
+    window.alert(formatUserFacingCheckoutError(event as CheckoutEventError));
+  };
+  window.setTimeout(() => {
+    if (checkoutErrorSink.current) checkoutErrorSink.current = null;
+  }, 300_000);
+
   paddle.Checkout.open({
     items: [{ priceId: id, quantity: 1 }],
     settings: {
+      displayMode: "overlay",
+      theme: "light",
       successUrl: `${origin}/app/intake?checkout=success`,
     },
   });
