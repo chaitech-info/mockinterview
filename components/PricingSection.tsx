@@ -4,18 +4,22 @@ import * as React from "react";
 
 import { PricingCard } from "@/components/PricingCard";
 import type { PaddleCatalogItem } from "@/lib/paddle/catalog-map";
+import type { PaddleCheckoutEnvironment } from "@/lib/paddle/checkout";
 import { Card, CardContent } from "@/components/ui/card";
 
 type ApiResponse = {
   ok: boolean;
   items?: PaddleCatalogItem[];
   message?: string;
+  checkoutEnvironment?: PaddleCheckoutEnvironment;
 };
 
 export function PricingSection() {
   const [loading, setLoading] = React.useState(true);
   const [items, setItems] = React.useState<PaddleCatalogItem[]>([]);
   const [error, setError] = React.useState<string | null>(null);
+  const [checkoutEnvironment, setCheckoutEnvironment] =
+    React.useState<PaddleCheckoutEnvironment | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -24,6 +28,9 @@ export function PricingSection() {
         const res = await fetch("/api/paddle/prices", { cache: "no-store" });
         const data = (await res.json()) as ApiResponse;
         if (cancelled) return;
+        if (data.checkoutEnvironment === "sandbox" || data.checkoutEnvironment === "production") {
+          setCheckoutEnvironment(data.checkoutEnvironment);
+        }
         if (data.ok && Array.isArray(data.items)) {
           setItems(data.items);
         } else {
@@ -97,6 +104,7 @@ export function PricingSection() {
                 ctaLabel="Subscribe"
                 ctaHref="/app/intake"
                 paddlePriceId={plan.priceId}
+                paddleCheckoutEnvironment={checkoutEnvironment ?? undefined}
               />
             ))}
       </div>

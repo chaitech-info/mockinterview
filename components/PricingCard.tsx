@@ -5,7 +5,7 @@ import { Check, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/firebase/client";
-import { openPaddleCheckout } from "@/lib/paddle/checkout";
+import { openPaddleCheckout, type PaddleCheckoutEnvironment } from "@/lib/paddle/checkout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,7 @@ export function PricingCard({
   ctaLabel,
   ctaHref,
   paddlePriceId,
+  paddleCheckoutEnvironment,
 }: {
   title: string;
   price: string;
@@ -29,6 +30,8 @@ export function PricingCard({
   ctaHref: string;
   /** If set, opens Paddle overlay checkout for this Billing price (pri_…). */
   paddlePriceId?: string;
+  /** Aligns Paddle.js with the server key that listed this price (sandbox vs live). */
+  paddleCheckoutEnvironment?: PaddleCheckoutEnvironment;
 }) {
   const [checkoutLoading, setCheckoutLoading] = React.useState(false);
 
@@ -39,7 +42,7 @@ export function PricingCard({
     setCheckoutLoading(true);
     try {
       void track("paddle_checkout_open", { priceId: paddlePriceId });
-      await openPaddleCheckout(paddlePriceId);
+      await openPaddleCheckout(paddlePriceId, paddleCheckoutEnvironment);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Checkout could not start.";
       window.alert(msg);

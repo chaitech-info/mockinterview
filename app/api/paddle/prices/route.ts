@@ -31,6 +31,10 @@ function friendlyPaddleError(body: string): string {
   return body.slice(0, 1200) || "Paddle API request failed";
 }
 
+function checkoutEnvironmentForBase(base: string): "sandbox" | "production" {
+  return base.includes("sandbox") ? "sandbox" : "production";
+}
+
 export async function GET() {
   const key = process.env.PADDLE_API_KEY?.trim();
   if (!key) {
@@ -38,6 +42,7 @@ export async function GET() {
   }
 
   const base = paddleApiBaseForKey(key);
+  const checkoutEnvironment = checkoutEnvironmentForBase(base);
   // List without `include` first: only `price.read`. `include=product` also needs `product.read`
   // (see https://developer.paddle.com/api-reference/about/permissions).
   const urls = [`${base}/prices?per_page=50`, `${base}/prices?per_page=50&include=product`];
@@ -57,9 +62,14 @@ export async function GET() {
     try {
       const json = JSON.parse(lastBody) as unknown;
       const items = mapPaddleListPricesResponse(json);
-      return NextResponse.json({ ok: true, items });
+      return NextResponse.json({ ok: true, items, checkoutEnvironment });
     } catch {
-      return NextResponse.json({ ok: false, items: [], message: "Invalid JSON from Paddle" });
+      return NextResponse.json({
+        ok: false,
+        items: [],
+        message: "Invalid JSON from Paddle",
+        checkoutEnvironment,
+      });
     }
   }
 
@@ -67,5 +77,6 @@ export async function GET() {
     ok: false,
     items: [],
     message: friendlyPaddleError(lastBody),
+    checkoutEnvironment,
   });
 }
