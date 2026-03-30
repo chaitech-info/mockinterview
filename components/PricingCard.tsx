@@ -5,7 +5,11 @@ import { Check, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/firebase/client";
-import { openPaddleCheckout, type PaddleCheckoutEnvironment } from "@/lib/paddle/checkout";
+import {
+  openPaddleCheckout,
+  type PaddleCheckoutEnvironment,
+  type PaddleKeyMode,
+} from "@/lib/paddle/checkout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +24,7 @@ export function PricingCard({
   ctaHref,
   paddlePriceId,
   paddleCheckoutEnvironment,
+  paddleKeyMode,
 }: {
   title: string;
   price: string;
@@ -32,6 +37,8 @@ export function PricingCard({
   paddlePriceId?: string;
   /** Aligns Paddle.js with the server key that listed this price (sandbox vs live). */
   paddleCheckoutEnvironment?: PaddleCheckoutEnvironment;
+  /** From `/api/paddle/prices` — refines JWT / token mismatch hints. */
+  paddleKeyMode?: PaddleKeyMode;
 }) {
   const [checkoutLoading, setCheckoutLoading] = React.useState(false);
 
@@ -42,7 +49,9 @@ export function PricingCard({
     setCheckoutLoading(true);
     try {
       void track("paddle_checkout_open", { priceId: paddlePriceId });
-      await openPaddleCheckout(paddlePriceId, paddleCheckoutEnvironment);
+      await openPaddleCheckout(paddlePriceId, paddleCheckoutEnvironment, {
+        paddleKeyMode,
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Checkout could not start.";
       window.alert(msg);

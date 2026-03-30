@@ -4,7 +4,7 @@ import * as React from "react";
 
 import { PricingCard } from "@/components/PricingCard";
 import type { PaddleCatalogItem } from "@/lib/paddle/catalog-map";
-import type { PaddleCheckoutEnvironment } from "@/lib/paddle/checkout";
+import type { PaddleCheckoutEnvironment, PaddleKeyMode } from "@/lib/paddle/checkout";
 import { Card, CardContent } from "@/components/ui/card";
 
 type ApiResponse = {
@@ -12,6 +12,7 @@ type ApiResponse = {
   items?: PaddleCatalogItem[];
   message?: string;
   checkoutEnvironment?: PaddleCheckoutEnvironment;
+  paddleKeyMode?: PaddleKeyMode;
 };
 
 export function PricingSection() {
@@ -20,6 +21,7 @@ export function PricingSection() {
   const [error, setError] = React.useState<string | null>(null);
   const [checkoutEnvironment, setCheckoutEnvironment] =
     React.useState<PaddleCheckoutEnvironment | null>(null);
+  const [paddleKeyMode, setPaddleKeyMode] = React.useState<PaddleKeyMode | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -30,6 +32,9 @@ export function PricingSection() {
         if (cancelled) return;
         if (data.checkoutEnvironment === "sandbox" || data.checkoutEnvironment === "production") {
           setCheckoutEnvironment(data.checkoutEnvironment);
+        }
+        if (data.paddleKeyMode === "live" || data.paddleKeyMode === "sandbox" || data.paddleKeyMode === "unknown") {
+          setPaddleKeyMode(data.paddleKeyMode);
         }
         if (data.ok && Array.isArray(data.items)) {
           setItems(data.items);
@@ -105,6 +110,7 @@ export function PricingSection() {
                 ctaHref="/app/intake"
                 paddlePriceId={plan.priceId}
                 paddleCheckoutEnvironment={checkoutEnvironment ?? undefined}
+                paddleKeyMode={paddleKeyMode ?? undefined}
               />
             ))}
       </div>

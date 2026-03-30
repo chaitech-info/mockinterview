@@ -35,6 +35,13 @@ function checkoutEnvironmentForBase(base: string): "sandbox" | "production" {
   return base.includes("sandbox") ? "sandbox" : "production";
 }
 
+/** Inferred from key shape (for checkout hints only; not a secret). */
+function paddleKeyModeFromKey(key: string): "live" | "sandbox" | "unknown" {
+  if (key.includes("live_")) return "live";
+  if (key.includes("sdbx_")) return "sandbox";
+  return "unknown";
+}
+
 export async function GET() {
   const key = process.env.PADDLE_API_KEY?.trim();
   if (!key) {
@@ -43,6 +50,7 @@ export async function GET() {
 
   const base = paddleApiBaseForKey(key);
   const checkoutEnvironment = checkoutEnvironmentForBase(base);
+  const paddleKeyMode = paddleKeyModeFromKey(key);
   // List without `include` first: only `price.read`. `include=product` also needs `product.read`
   // (see https://developer.paddle.com/api-reference/about/permissions).
   const urls = [`${base}/prices?per_page=50`, `${base}/prices?per_page=50&include=product`];
@@ -62,13 +70,14 @@ export async function GET() {
     try {
       const json = JSON.parse(lastBody) as unknown;
       const items = mapPaddleListPricesResponse(json);
-      return NextResponse.json({ ok: true, items, checkoutEnvironment });
+      return NextResponse.json({ ok: true, items, checkoutEnvironment, paddleKeyMode });
     } catch {
       return NextResponse.json({
         ok: false,
         items: [],
         message: "Invalid JSON from Paddle",
         checkoutEnvironment,
+        paddleKeyMode,
       });
     }
   }
@@ -78,5 +87,6 @@ export async function GET() {
     items: [],
     message: friendlyPaddleError(lastBody),
     checkoutEnvironment,
+    paddleKeyMode,
   });
 }
