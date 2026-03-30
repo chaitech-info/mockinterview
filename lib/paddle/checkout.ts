@@ -40,9 +40,18 @@ function formatUserFacingCheckoutError(event: CheckoutEventError): string {
   if (event.code) lines.push(`Code: ${event.code}`);
   if (event.documentation_url) lines.push(event.documentation_url);
 
+  const detailLower = event.detail?.toLowerCase() ?? "";
+  if (detailLower.includes("jwt") || detailLower.includes("failed to retrieve")) {
+    lines.push(
+      "“Failed to retrieve JWT” almost always means the client-side token does not match Paddle mode: " +
+        "use a LIVE client token (Developer tools → Authentication) when your server uses a live API key (`live_` in the key), " +
+        "or a SANDBOX token when using a sandbox key (`sdbx_`). Regenerate the token in Paddle if you are unsure. " +
+        "Do not use the server API key as the client token."
+    );
+  }
+
   lines.push(
-    "Common fixes: use a client token and price IDs from the same Paddle environment (sandbox vs live); " +
-      "in Paddle → Checkout → Checkout settings, set Default payment link and approve your website domain."
+    "Also check: Paddle → Checkout → Checkout settings → Default payment link, and approve your website domain for live checkout."
   );
 
   return lines.join("\n\n");
@@ -128,6 +137,9 @@ export async function openPaddleCheckout(
   window.setTimeout(() => {
     if (checkoutErrorSink.current) checkoutErrorSink.current = null;
   }, 300_000);
+
+  // Ensure mode matches token + price IDs (avoids “Failed to retrieve JWT” when env was stale).
+  paddle.Environment.set(env);
 
   paddle.Checkout.open({
     items: [{ priceId: id, quantity: 1 }],
