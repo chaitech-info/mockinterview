@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const FirebaseAnalytics = dynamic(
@@ -33,6 +34,7 @@ export default function RootLayout({
         <FirebaseAnalytics />
         {children}
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
