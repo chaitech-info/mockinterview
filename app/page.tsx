@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   ArrowRight,
   BrainCircuit,
@@ -90,10 +91,14 @@ export default function Home() {
         <Container>
           <div className="flex h-16 items-center justify-between">
             <a href="/" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-foreground text-sm font-semibold text-background shadow-sm">
-                P
-              </div>
-              <div className="text-sm font-semibold tracking-tight">PrepAI</div>
+              <Image
+                src="/logo.jpeg"
+                alt="PrepAI"
+                width={200}
+                height={40}
+                className="h-9 w-auto max-w-[200px] object-contain object-left"
+                priority
+              />
             </a>
             <div className="flex items-center gap-2">
               <Button asChild variant="ghost">
@@ -312,14 +317,15 @@ export default function Home() {
       <footer className="border-t border-border bg-background">
         <Container>
           <div className="flex flex-col gap-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-foreground text-sm font-semibold text-background">
-                P
-              </div>
-              <div>
-                <div className="text-sm font-semibold">PrepAI</div>
-                <div className="text-xs text-muted-foreground">AI-powered interview coach</div>
-              </div>
+            <div className="flex items-center gap-3">
+              <Image
+                src="/logo.jpeg"
+                alt="PrepAI"
+                width={200}
+                height={40}
+                className="h-9 w-auto max-w-[200px] object-contain object-left"
+              />
+              <div className="text-xs text-muted-foreground">AI-powered interview coach</div>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground">
