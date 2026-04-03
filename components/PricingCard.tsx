@@ -10,6 +10,7 @@ import {
   type PaddleCheckoutEnvironment,
   type PaddleKeyMode,
 } from "@/lib/paddle/checkout";
+import { signInWithGoogle } from "@/lib/supabase/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,7 @@ export function PricingCard({
   highlighted,
   ctaLabel,
   ctaHref,
+  ctaGoogleSignIn,
   paddlePriceId,
   paddleCheckoutEnvironment,
   paddleKeyMode,
@@ -33,6 +35,8 @@ export function PricingCard({
   highlighted?: boolean;
   ctaLabel: string;
   ctaHref: string;
+  /** When true, CTA starts Google sign-in and uses `ctaHref` as the post-login path. */
+  ctaGoogleSignIn?: boolean;
   /** If set, opens Paddle overlay checkout for this Billing price (pri_…). */
   paddlePriceId?: string;
   /** Aligns Paddle.js with the server key that listed this price (sandbox vs live). */
@@ -112,6 +116,18 @@ export function PricingCard({
             ) : (
               ctaLabel
             )}
+          </Button>
+        ) : ctaGoogleSignIn ? (
+          <Button
+            type="button"
+            className="w-full"
+            variant={highlighted ? "default" : "outline"}
+            onClick={() => {
+              void track("pricing_click_try_free_google");
+              void signInWithGoogle(ctaHref);
+            }}
+          >
+            {ctaLabel}
           </Button>
         ) : (
           <Button asChild className="w-full" variant={highlighted ? "default" : "outline"}>

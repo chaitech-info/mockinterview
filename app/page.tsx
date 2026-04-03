@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { track } from "@/lib/firebase/client";
+import { signInWithGoogle } from "@/lib/supabase/auth";
 
 function Container({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto w-full max-w-7xl px-4 sm:px-6">{children}</div>;
@@ -99,7 +100,7 @@ export default function Home() {
                 className="h-9 w-auto max-w-[200px] object-contain object-left"
                 priority
               />
-              <div className="text-sm font-semibold tracking-tight">PrepAI</div>
+              <div className="text-sm font-semibold tracking-tight">Mock Interview</div>
             </a>
             <div className="flex items-center gap-2">
               <Button asChild variant="ghost">
@@ -111,13 +112,14 @@ export default function Home() {
                 </a>
               </Button>
               {authSession !== "signed_in" ? (
-                <Button asChild>
-                  <a
-                    href="/app/intake"
-                    onClick={() => void track("landing_click_try_free")}
-                  >
-                    Try free — no signup
-                  </a>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    void track("landing_click_try_free");
+                    void signInWithGoogle("/app/intake");
+                  }}
+                >
+                  Try free
                 </Button>
               ) : null}
               <AuthButton />
@@ -146,28 +148,27 @@ export default function Home() {
                 </p>
 
                 <div className="animate-fade-up-delayed2 flex flex-col gap-3 sm:flex-row">
-                  <Button asChild size="lg">
-                    <a
-                      href="/app/intake"
-                      onClick={() =>
-                        void track(
-                          authSession === "signed_in"
-                            ? "landing_click_start_mock"
-                            : "landing_click_try_free"
-                        )
-                      }
+                  {authSession === "signed_in" ? (
+                    <Button asChild size="lg">
+                      <a
+                        href="/app/intake"
+                        onClick={() => void track("landing_click_start_mock")}
+                      >
+                        Start mock interview <ArrowRight className="ml-1 h-4 w-4" />
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={() => {
+                        void track("landing_click_try_free");
+                        void signInWithGoogle("/app/intake");
+                      }}
                     >
-                      {authSession === "signed_in" ? (
-                        <>
-                          Start mock interview <ArrowRight className="ml-1 h-4 w-4" />
-                        </>
-                      ) : (
-                        <>
-                          Try free — no signup <ArrowRight className="ml-1 h-4 w-4" />
-                        </>
-                      )}
-                    </a>
-                  </Button>
+                      Try free <ArrowRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  )}
                   <Button asChild size="lg" variant="outline">
                     <a
                       href="#how-it-works"
@@ -208,7 +209,7 @@ export default function Home() {
                   Built for real interview performance
                 </h2>
                 <p className="mt-3 text-muted-foreground">
-                  PrepAI turns any job description into a focused practice loop: questions, voice rehearsal, and actionable feedback.
+                  Mock Interview turns any job description into a focused practice loop: questions, voice rehearsal, and actionable feedback.
                 </p>
               </div>
 
@@ -327,7 +328,7 @@ export default function Home() {
                 className="h-9 w-auto max-w-[200px] object-contain object-left"
               />
               <div>
-                <div className="text-sm font-semibold">PrepAI</div>
+                <div className="text-sm font-semibold">Mock Interview</div>
                 <div className="text-xs text-muted-foreground">AI-powered interview coach</div>
               </div>
             </div>
@@ -345,7 +346,7 @@ export default function Home() {
             </div>
           </div>
           <div className="pb-10 text-xs text-muted-foreground">
-            © {new Date().getFullYear()} PrepAI. All rights reserved.
+            © {new Date().getFullYear()} Mock Interview. All rights reserved.
           </div>
         </Container>
       </footer>

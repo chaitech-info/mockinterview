@@ -80,8 +80,9 @@ export function PricingSection({ signedIn = false }: { signedIn?: boolean }) {
           title="Free"
           price="$0"
           features={["1 session/month", "5 questions", "No PDF report"]}
-          ctaLabel={signedIn ? "Get started" : "Try free — no signup"}
+          ctaLabel={signedIn ? "Get started" : "Try free"}
           ctaHref="/app/intake"
+          ctaGoogleSignIn={!signedIn}
         />
 
         {loading
