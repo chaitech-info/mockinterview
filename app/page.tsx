@@ -11,6 +11,7 @@ import {
 
 import { AuthButton } from "@/components/AuthButton";
 import { PricingSection } from "@/components/PricingSection";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { Waveform } from "@/components/Waveform";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,6 +82,8 @@ function HeroMockup() {
 }
 
 export default function Home() {
+  const authSession = useAuthSession();
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/70 backdrop-blur">
@@ -101,14 +104,16 @@ export default function Home() {
                   Pricing
                 </a>
               </Button>
-              <Button asChild>
-                <a
-                  href="/app/intake"
-                  onClick={() => void track("landing_click_try_free")}
-                >
-                  Try free — no signup
-                </a>
-              </Button>
+              {authSession !== "signed_in" ? (
+                <Button asChild>
+                  <a
+                    href="/app/intake"
+                    onClick={() => void track("landing_click_try_free")}
+                  >
+                    Try free — no signup
+                  </a>
+                </Button>
+              ) : null}
               <AuthButton />
             </div>
           </div>
@@ -138,9 +143,23 @@ export default function Home() {
                   <Button asChild size="lg">
                     <a
                       href="/app/intake"
-                      onClick={() => void track("landing_click_try_free")}
+                      onClick={() =>
+                        void track(
+                          authSession === "signed_in"
+                            ? "landing_click_start_mock"
+                            : "landing_click_try_free"
+                        )
+                      }
                     >
-                      Try free — no signup <ArrowRight className="ml-1 h-4 w-4" />
+                      {authSession === "signed_in" ? (
+                        <>
+                          Start mock interview <ArrowRight className="ml-1 h-4 w-4" />
+                        </>
+                      ) : (
+                        <>
+                          Try free — no signup <ArrowRight className="ml-1 h-4 w-4" />
+                        </>
+                      )}
                     </a>
                   </Button>
                   <Button asChild size="lg" variant="outline">
@@ -284,7 +303,7 @@ export default function Home() {
         <section id="pricing" className="bg-gray-50 scroll-mt-24">
           <Container>
             <div className="py-16 lg:py-24">
-              <PricingSection />
+              <PricingSection signedIn={authSession === "signed_in"} />
             </div>
           </Container>
         </section>

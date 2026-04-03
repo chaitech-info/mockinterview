@@ -15,7 +15,7 @@ type ApiResponse = {
   paddleKeyMode?: PaddleKeyMode;
 };
 
-export function PricingSection() {
+export function PricingSection({ signedIn = false }: { signedIn?: boolean }) {
   const [loading, setLoading] = React.useState(true);
   const [items, setItems] = React.useState<PaddleCatalogItem[]>([]);
   const [error, setError] = React.useState<string | null>(null);
@@ -80,7 +80,7 @@ export function PricingSection() {
           title="Free"
           price="$0"
           features={["1 session/month", "5 questions", "No PDF report"]}
-          ctaLabel="Try free — no signup"
+          ctaLabel={signedIn ? "Get started" : "Try free — no signup"}
           ctaHref="/app/intake"
         />
 
