@@ -15,6 +15,8 @@ import { signInWithGoogle } from "@/lib/supabase/auth";
 import type { IntakeResponse } from "@/lib/session-store";
 import { clearActiveSession, saveActiveSession } from "@/lib/session-store";
 
+const MIN_JD_CHAR_COUNT = 50;
+
 type Phase = "input" | "analyzing" | "results" | "error";
 
 export default function IntakePage() {
@@ -24,6 +26,7 @@ export default function IntakePage() {
 
   const [loadingText, setLoadingText] = React.useState("Analyzing job description...");
   const [error, setError] = React.useState<string | null>(null);
+  const [jdTooShortMessage, setJdTooShortMessage] = React.useState(false);
   const [result, setResult] = React.useState<IntakeResponse | null>(null);
   const timeouts = React.useRef<number[]>([]);
 
@@ -40,6 +43,11 @@ export default function IntakePage() {
   }
 
   async function runAnalysisSequence() {
+    if (jdText.trim().length < MIN_JD_CHAR_COUNT) {
+      setJdTooShortMessage(true);
+      return;
+    }
+    setJdTooShortMessage(false);
     clearTimers();
     setError(null);
     setResult(null);
@@ -180,6 +188,7 @@ export default function IntakePage() {
                         clearTimers();
                         setPhase("input");
                         setJdText("");
+                        setJdTooShortMessage(false);
                         setResult(null);
                         clearActiveSession();
                         void track("intake_start_over");
@@ -201,7 +210,10 @@ export default function IntakePage() {
                     <div className="mt-1 text-muted-foreground">{error ?? "Unknown error"}</div>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button onClick={() => void runAnalysisSequence()} disabled={!jdText.trim()}>
+                    <Button
+                      onClick={() => void runAnalysisSequence()}
+                      disabled={jdText.trim().length < MIN_JD_CHAR_COUNT}
+                    >
                       Try again
                     </Button>
                     <Button
@@ -209,6 +221,7 @@ export default function IntakePage() {
                       onClick={() => {
                         setPhase("input");
                         setError(null);
+                        setJdTooShortMessage(false);
                       }}
                     >
                       Back
@@ -221,22 +234,50 @@ export default function IntakePage() {
                     rows={10}
                     placeholder="Paste the full job description here..."
                     value={jdText}
-                    onChange={(e) => setJdText(e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setJdText(v);
+                      if (v.trim().length >= MIN_JD_CHAR_COUNT) {
+                        setJdTooShortMessage(false);
+                      }
+                    }}
                     className="min-h-[220px]"
                   />
 
-                  <div className="text-sm text-muted-foreground">
-                    We&apos;ll extract the role, required skills, and generate 12 tailored questions
+                  <div className="space-y-2">
+                    <div className="text-sm text-muted-foreground">
+                      We&apos;ll extract the role, required skills, and generate 12 tailored questions
+                    </div>
+                    {jdTooShortMessage ? (
+                      <p className="text-sm text-red-600" role="alert">
+                        Please enter at least {MIN_JD_CHAR_COUNT} characters in the job description
+                        before analyzing.
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Button
-                      size="lg"
-                      onClick={() => void runAnalysisSequence()}
-                      disabled={!jdText.trim()}
+                    <div
+                      className="inline-block"
+                      onClick={() => {
+                        if (jdText.trim().length < MIN_JD_CHAR_COUNT) {
+                          setJdTooShortMessage(true);
+                        }
+                      }}
                     >
-                      Analyze job description →
-                    </Button>
+                      <Button
+                        size="lg"
+                        className={
+                          jdText.trim().length < MIN_JD_CHAR_COUNT
+                            ? "pointer-events-none"
+                            : undefined
+                        }
+                        onClick={() => void runAnalysisSequence()}
+                        disabled={jdText.trim().length < MIN_JD_CHAR_COUNT}
+                      >
+                        Analyze job description →
+                      </Button>
+                    </div>
                     <div className="text-sm text-muted-foreground">No signup required.</div>
                   </div>
                 </div>
