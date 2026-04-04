@@ -21,7 +21,7 @@ export function ScoreCard({
       <Card className={cn("shadow-sm", className)}>
         <CardContent className="p-5">
           <div className="text-sm font-medium text-muted-foreground">{label}</div>
-          <div className="mt-3 text-sm text-muted-foreground">No scored answers in this category</div>
+          <div className="mt-3 text-sm text-muted-foreground">No scored answers in this category.</div>
         </CardContent>
       </Card>
     );

@@ -18,6 +18,10 @@ import { extractExampleAnswerFromPayload, submitAnswerMultipart } from "@/lib/in
 import { extensionForMime, pickAudioMimeType } from "@/lib/interview/recording";
 import { buildReportSnapshotFromInterview, saveReportSnapshot } from "@/lib/report-snapshot";
 import { loadActiveSession } from "@/lib/session-store";
+import {
+  updateInterviewSessionScores,
+  type StoredQuestionScore,
+} from "@/lib/supabase/interview-session";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 
@@ -38,6 +42,17 @@ type ScoreRow = {
   strength?: string;
   improvement?: string;
 };
+
+function scoreRowsToStored(rows: ScoreRow[]): StoredQuestionScore[] {
+  return rows.map((r) => ({
+    id: r.id,
+    category: r.category,
+    score: r.score,
+    feedback: r.feedback,
+    strength: r.strength,
+    improvement: r.improvement,
+  }));
+}
 
 function mapApiToUiQuestions(
   questions: NonNullable<ReturnType<typeof loadActiveSession>>["questions"]
@@ -73,6 +88,9 @@ export default function InterviewPage() {
   const [phase, setPhase] = React.useState<Phase>("idle");
   const [scoreRows, setScoreRows] = React.useState<ScoreRow[]>([]);
   const scoreRowsRef = React.useRef<ScoreRow[]>([]);
+  React.useEffect(() => {
+    scoreRowsRef.current = scoreRows;
+  }, [scoreRows]);
   const [feedbackPayload, setFeedbackPayload] = React.useState<AnswerWebhookResponse | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [micError, setMicError] = React.useState<string | null>(null);
@@ -83,6 +101,32 @@ export default function InterviewPage() {
   const recorderRef = React.useRef<MediaRecorder | null>(null);
   const chunksRef = React.useRef<Blob[]>([]);
   const mimeRef = React.useRef<string>("");
+
+  const finalizeSessionAndGoReport = React.useCallback(() => {
+    const sid = sessionId;
+    void (async () => {
+      if (sid) {
+        try {
+          const sb = getSupabaseClient();
+          const {
+            data: { user },
+          } = await sb.auth.getUser();
+          if (user?.id) {
+            const { error } = await updateInterviewSessionScores({
+              userId: user.id,
+              sessionId: sid,
+              questionScores: scoreRowsToStored(scoreRowsRef.current),
+              status: "completed",
+            });
+            if (error) console.warn("[PrepAI] Final session sync:", error.message);
+          }
+        } catch (e) {
+          console.warn("[PrepAI] Final session sync:", e);
+        }
+      }
+      window.location.assign(sid ? `/app/report?session_id=${encodeURIComponent(sid)}` : "/app/report");
+    })();
+  }, [sessionId]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -267,7 +311,7 @@ export default function InterviewPage() {
       setFeedbackPayload(data);
       setScoreRows((prev) => {
         if (prev.some((r) => r.id === question.id)) return prev;
-        const next = [
+        const merged = [
           ...prev,
           {
             id: question.id,
@@ -278,8 +322,16 @@ export default function InterviewPage() {
             improvement: data.improvement,
           },
         ];
-        scoreRowsRef.current = next;
-        return next;
+        scoreRowsRef.current = merged;
+        void (async () => {
+          const { error } = await updateInterviewSessionScores({
+            userId: user.id,
+            sessionId,
+            questionScores: scoreRowsToStored(merged),
+          });
+          if (error) console.warn("[PrepAI] Session sync failed:", error.message);
+        })();
+        return merged;
       });
       setPhase("feedback");
       void track("interview_feedback_shown", { questionId: question.id, score: data.score });
@@ -308,7 +360,7 @@ export default function InterviewPage() {
         setShowFreeTierUpsell(true);
         return;
       }
-      window.location.href = "/app/report";
+      finalizeSessionAndGoReport();
       return;
     }
     void track("interview_next_question", { fromQuestionId: question.id, toIndex: next });
@@ -613,7 +665,7 @@ export default function InterviewPage() {
                   className="w-full"
                   onClick={() => {
                     void track("interview_upsell_continue_to_report");
-                    window.location.href = "/app/report";
+                    finalizeSessionAndGoReport();
                   }}
                 >
                   Continue to report

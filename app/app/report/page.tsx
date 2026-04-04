@@ -1,15 +1,20 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Download, Loader2, RotateCcw } from "lucide-react";
 
 import { ScoreCard } from "@/components/ScoreCard";
 import { Stepper } from "@/components/Stepper";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { track } from "@/lib/firebase/client";
+import type { QuestionCategory } from "@/lib/mock-data";
+import { questionScoresMock, reportMock } from "@/lib/mock-data";
 import {
-  averageScore,
   improvementsFromRows,
   letterGrade,
   metricsByCategory,
@@ -17,8 +22,22 @@ import {
   strengthsFromRows,
   studyPlanFromSnapshot,
 } from "@/lib/report-build";
+import { buildReportViewModel, type ReportViewModel } from "@/lib/report/from-session";
+import type { ReportSnapshot } from "@/lib/report-snapshot";
 import { loadReportSnapshot } from "@/lib/report-snapshot";
+import type { ApiQuestion } from "@/lib/session-store";
+import { loadActiveSession } from "@/lib/session-store";
+import { fetchInterviewSessionBySessionId } from "@/lib/supabase/interview-session";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { signInWithGoogle } from "@/lib/supabase/auth";
 import { cn } from "@/lib/utils";
+
+const METRIC_ORDER: QuestionCategory[] = [
+  "Behavioral",
+  "Technical",
+  "Situational",
+  "Culture-fit",
+];
 
 function scoreTone(score: number) {
   if (score >= 8) return "bg-foreground text-background";
@@ -26,31 +45,195 @@ function scoreTone(score: number) {
   return "bg-muted/70 text-foreground";
 }
 
-export default function ReportPage() {
-  const snapshot = React.useMemo(() => loadReportSnapshot(), []);
+function viewModelFromSnapshot(snapshot: ReportSnapshot): ReportViewModel {
+  const rows = snapshot.rows;
+  const scored = rows.filter((r): r is (typeof rows)[number] & { score: number } => r.score != null);
+  const overallScore =
+    scored.length > 0 ? scored.reduce((a, r) => a + r.score, 0) / scored.length : 0;
+  const strengths = strengthsFromRows(rows);
+  const improvements = improvementsFromRows(rows);
+  return {
+    grade: scored.length ? letterGrade(overallScore) : "—",
+    overallScore: scored.length ? Math.round(overallScore * 10) / 10 : 0,
+    subtext: scored.length ? overallSubtext(overallScore) : "No scored answers yet — complete the mock interview to build your report.",
+    metrics: metricsByCategory(rows),
+    strengths:
+      strengths.length > 0
+        ? strengths
+        : ["Coach strength lines from your scored answers will appear here."],
+    improvements:
+      improvements.length > 0
+        ? improvements
+        : ["Coach improvement tips from your scored answers will appear here."],
+    studyPlan: studyPlanFromSnapshot(snapshot),
+    rows: rows.map((r) => ({
+      id: r.order,
+      category: r.category,
+      score: r.score,
+      feedback: r.skipped ? "" : r.feedback,
+    })),
+  };
+}
 
-  const avg = snapshot ? averageScore(snapshot.rows) : null;
-  const metrics = snapshot ? metricsByCategory(snapshot.rows) : null;
-  const strengths = snapshot ? strengthsFromRows(snapshot.rows) : [];
-  const improvements = snapshot ? improvementsFromRows(snapshot.rows) : [];
-  const studyPlan = snapshot ? studyPlanFromSnapshot(snapshot) : [];
+function ReportPageInner() {
+  const searchParams = useSearchParams();
+  const [fallbackSessionId, setFallbackSessionId] = React.useState<string | null>(null);
+  const [storageHydrated, setStorageHydrated] = React.useState(false);
 
-  if (!snapshot?.rows?.length) {
+  React.useEffect(() => {
+    setFallbackSessionId(loadActiveSession()?.session_id ?? null);
+    setStorageHydrated(true);
+  }, []);
+
+  const urlSessionId = searchParams.get("session_id")?.trim() || null;
+  const sessionId = urlSessionId || (storageHydrated ? fallbackSessionId : null);
+
+  const [phase, setPhase] = React.useState<
+    "loading" | "ready" | "error" | "sign_in" | "no_session"
+  >("loading");
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [useMock, setUseMock] = React.useState(false);
+  const [vm, setVm] = React.useState<ReportViewModel | null>(null);
+  const [fromSnapshot, setFromSnapshot] = React.useState(false);
+
+  const [downloading, setDownloading] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!storageHydrated) return;
+
+      if (!isSupabaseConfigured()) {
+        if (!cancelled) {
+          setUseMock(true);
+          setVm(null);
+          setFromSnapshot(false);
+          setPhase("ready");
+        }
+        return;
+      }
+
+      if (!sessionId) {
+        const snap = loadReportSnapshot();
+        if (snap?.rows?.length) {
+          if (!cancelled) {
+            setUseMock(false);
+            setFromSnapshot(true);
+            setVm(viewModelFromSnapshot(snap));
+            setPhase("ready");
+          }
+          return;
+        }
+        if (!cancelled) {
+          setUseMock(false);
+          setVm(null);
+          setFromSnapshot(false);
+          setPhase("no_session");
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setUseMock(false);
+        setFromSnapshot(false);
+        setPhase("loading");
+        setErrorMessage(null);
+      }
+
+      try {
+        const supabase = getSupabaseClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          if (!cancelled) setPhase("sign_in");
+          return;
+        }
+
+        const { data, error } = await fetchInterviewSessionBySessionId({
+          userId: user.id,
+          sessionId,
+        });
+        if (cancelled) return;
+
+        if (error) {
+          setErrorMessage(error.message);
+          setPhase("error");
+          return;
+        }
+        if (!data) {
+          setErrorMessage("No saved session found for this id.");
+          setPhase("error");
+          return;
+        }
+
+        const questions = Array.isArray(data.questions) ? (data.questions as ApiQuestion[]) : [];
+        const scores = Array.isArray(data.question_scores) ? data.question_scores : [];
+        const built = buildReportViewModel(questions, scores);
+        if (!built) {
+          setErrorMessage("Session has no questions.");
+          setPhase("error");
+          return;
+        }
+        if (!cancelled) {
+          setVm(built);
+          setPhase("ready");
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setErrorMessage(e instanceof Error ? e.message : "Failed to load report");
+          setPhase("error");
+        }
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, storageHydrated]);
+
+  function downloadPdfMock() {
+    setDownloading(true);
+    void track("report_download_pdf");
+    window.setTimeout(() => {
+      setDownloading(false);
+      window.alert("Mock download: PDF report generated.");
+    }, 900);
+  }
+
+  if (!storageHydrated || phase === "loading") {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
+          <Stepper currentStep={3} />
+          <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading report…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "sign_in") {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
           <Stepper currentStep={3} />
           <Card className="mt-8 border-gray-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-xl">No report data yet</CardTitle>
+              <CardTitle className="text-xl">Sign in to view your report</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <p>
-                Complete a mock interview and use <strong>Next question</strong> through the last
-                question to generate your report. Opening this page directly won&apos;t show scores.
-              </p>
-              <Button asChild>
-                <Link href="/app/interview">Go to mock interview</Link>
+              <p>Your scored report is tied to your account.</p>
+              <Button
+                onClick={() =>
+                  void signInWithGoogle(`/app/report?session_id=${encodeURIComponent(sessionId ?? "")}`)
+                }
+              >
+                Sign in with Google
               </Button>
             </CardContent>
           </Card>
@@ -59,14 +242,90 @@ export default function ReportPage() {
     );
   }
 
-  const gradeDisplay = avg != null ? letterGrade(avg) : "—";
-  const subtext =
-    avg != null ? overallSubtext(avg) : "Submit recorded answers to see an overall score.";
+  if (phase === "error") {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
+          <Stepper currentStep={3} />
+          <Card className="mt-8 border-gray-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">Report unavailable</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-muted-foreground">
+              <p>{errorMessage}</p>
+              <p className="text-xs">
+                If you just finished an interview, confirm the{" "}
+                <code className="rounded bg-muted px-1 py-0.5">interview_sessions</code> table exists
+                in Supabase (see <code className="rounded bg-muted px-1 py-0.5">supabase/migrations</code>
+                ) and intake saved your session.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button asChild>
+                  <Link href="/app/intake">Start from intake</Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/app/interview">Mock interview</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "no_session") {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
+          <Stepper currentStep={3} />
+          <Card className="mt-8 border-gray-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">No session to show</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-muted-foreground">
+              <p>
+                Open the report from the end of a mock interview, or complete intake first so a{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">session_id</code> is saved.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button asChild>
+                  <Link href="/app/intake">Go to intake</Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/app/interview">Mock interview</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  const display = vm;
+  const questionRows = display?.rows ?? questionScoresMock;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
         <Stepper currentStep={3} />
+
+        {useMock && !display ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Demo mode: Supabase is not configured. Set{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_*</code> and add
+            the <code className="rounded bg-muted px-1 py-0.5 text-xs">interview_sessions</code> table to
+            load real reports.
+          </p>
+        ) : null}
+
+        {fromSnapshot && display ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Showing the report saved in this browser from your last completed interview. Sign in and open
+            from the interview flow to sync with your account.
+          </p>
+        ) : null}
 
         <div className="mt-8 space-y-8">
           <Card className="border-gray-200 shadow-sm">
@@ -75,31 +334,30 @@ export default function ReportPage() {
                 <div className="space-y-1">
                   <div className="text-sm text-muted-foreground">Overall grade</div>
                   <div className="flex items-center gap-3">
-                    {avg != null ? (
-                      <Badge className="bg-foreground text-background hover:bg-foreground">
-                        {gradeDisplay}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">—</Badge>
-                    )}
+                    <Badge className="bg-foreground text-background hover:bg-foreground">
+                      {display?.grade ?? reportMock.grade}
+                    </Badge>
                     <div className="text-2xl font-semibold tracking-tight">
-                      {avg != null ? `${avg.toFixed(1)} / 10` : "— / 10"}
+                      {(display?.overallScore ?? reportMock.overallScore).toFixed(1)} / 10
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="text-sm text-muted-foreground">{subtext}</div>
+              <div className="text-sm text-muted-foreground">
+                {display?.subtext ?? reportMock.subtext}
+              </div>
             </CardHeader>
           </Card>
 
-          {metrics ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <ScoreCard label="Behavioral" score={metrics.Behavioral} />
-              <ScoreCard label="Technical" score={metrics.Technical} />
-              <ScoreCard label="Situational" score={metrics.Situational} />
-              <ScoreCard label="Culture fit" score={metrics["Culture-fit"]} />
-            </div>
-          ) : null}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {METRIC_ORDER.map((key) => (
+              <ScoreCard
+                key={key}
+                label={key}
+                score={display ? display.metrics[key] : reportMock.metrics[key]}
+              />
+            ))}
+          </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card className="border-gray-200 shadow-sm">
@@ -107,22 +365,11 @@ export default function ReportPage() {
                 <CardTitle className="text-lg">Strengths</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {strengths.length ? (
-                  strengths.map((s) => (
-                    <div
-                      key={s}
-                      className="rounded-xl border border-border bg-background p-4"
-                    >
-                      <div className="border-l-4 border-foreground pl-3 text-sm font-medium">
-                        {s}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Coach &quot;Strength&quot; lines from your scored answers will appear here.
-                  </p>
-                )}
+                {(display?.strengths ?? reportMock.strengths).map((s) => (
+                  <div key={s} className="rounded-xl border border-border bg-background p-4">
+                    <div className="border-l-4 border-foreground pl-3 text-sm font-medium">{s}</div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
 
@@ -131,22 +378,13 @@ export default function ReportPage() {
                 <CardTitle className="text-lg">Areas to improve</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {improvements.length ? (
-                  improvements.map((s) => (
-                    <div
-                      key={s}
-                      className="rounded-xl border border-border bg-background p-4"
-                    >
-                      <div className="border-l-4 border-muted-foreground/40 pl-3 text-sm font-medium">
-                        {s}
-                      </div>
+                {(display?.improvements ?? reportMock.improvements).map((s) => (
+                  <div key={s} className="rounded-xl border border-border bg-background p-4">
+                    <div className="border-l-4 border-muted-foreground/40 pl-3 text-sm font-medium">
+                      {s}
                     </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Coach improvement tips from your scored answers will appear here.
-                  </p>
-                )}
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>
@@ -157,11 +395,8 @@ export default function ReportPage() {
             </CardHeader>
             <CardContent>
               <ul className="grid gap-3 sm:grid-cols-3">
-                {studyPlan.map((s) => (
-                  <li
-                    key={s}
-                    className="rounded-xl border border-border bg-background p-4 text-sm"
-                  >
+                {(display?.studyPlan ?? reportMock.studyPlan).map((s) => (
+                  <li key={s} className="rounded-xl border border-border bg-background p-4 text-sm">
                     {s}
                   </li>
                 ))}
@@ -185,23 +420,21 @@ export default function ReportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {snapshot.rows.map((row) => (
-                      <tr key={row.questionId} className="align-top">
-                        <td className="border-b border-border py-4 pr-4 font-medium">
-                          {row.order}
-                        </td>
+                    {questionRows.map((row) => (
+                      <tr key={`${row.id}-${row.category}`} className="align-top">
+                        <td className="border-b border-border py-4 pr-4 font-medium">{row.id}</td>
                         <td className="border-b border-border py-4 pr-4">{row.category}</td>
                         <td className="border-b border-border py-4 pr-4">
-                          {row.skipped || row.score == null ? (
-                            <Badge variant="outline">Skipped</Badge>
-                          ) : (
+                          {row.score != null ? (
                             <Badge className={cn(scoreTone(row.score))}>
                               {row.score.toFixed(1)}/10
                             </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">Skipped</span>
                           )}
                         </td>
                         <td className="border-b border-border py-4 text-muted-foreground">
-                          {row.skipped
+                          {row.score == null
                             ? "No answer submitted for this question."
                             : row.feedback || "—"}
                         </td>
@@ -212,8 +445,51 @@ export default function ReportPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="border-gray-200 shadow-sm">
+            <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-base font-semibold">Ready to save this report?</div>
+                <div className="text-sm text-muted-foreground">
+                  Download a scored PDF and keep practicing.
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button size="lg" onClick={downloadPdfMock} disabled={downloading}>
+                  <Download className="h-4 w-4" />
+                  {downloading ? "Preparing PDF…" : "Download PDF report"}
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <a href="/app/intake" onClick={() => void track("report_start_new_session")}>
+                    <RotateCcw className="h-4 w-4" />
+                    Start a new session
+                  </a>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ReportPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50">
+          <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
+            <Stepper currentStep={3} />
+            <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ReportPageInner />
+    </Suspense>
   );
 }
