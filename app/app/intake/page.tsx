@@ -26,6 +26,7 @@ export default function IntakePage() {
 
   const [loadingText, setLoadingText] = React.useState("Analyzing job description...");
   const [error, setError] = React.useState<string | null>(null);
+  const [quotaExceeded, setQuotaExceeded] = React.useState(false);
   const [jdTooShortMessage, setJdTooShortMessage] = React.useState(false);
   const [result, setResult] = React.useState<IntakeResponse | null>(null);
   const timeouts = React.useRef<number[]>([]);
@@ -50,6 +51,7 @@ export default function IntakePage() {
     setJdTooShortMessage(false);
     clearTimers();
     setError(null);
+    setQuotaExceeded(false);
     setResult(null);
     setPhase("analyzing");
     setLoadingText("Analyzing job description...");
@@ -97,9 +99,46 @@ export default function IntakePage() {
         throw new Error("Unexpected intake response");
       }
 
-      setResult(json);
-      saveActiveSession(json);
-      void track("intake_analysis_complete", { sessionId: json.session_id });
+      const regRes = await fetch("/api/intake/register-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(json),
+      });
+
+      const regJson = (await regRes.json()) as {
+        ok?: boolean;
+        intake?: IntakeResponse;
+        error?: string;
+        message?: string;
+        plan?: string;
+      };
+
+      if (!regRes.ok || !regJson.ok || !regJson.intake) {
+        if (regRes.status === 403 && regJson.error === "quota_exceeded") {
+          setQuotaExceeded(true);
+          setError(
+            regJson.message ??
+              "You have used all mock interviews for this month on your current plan. Upgrade to unlock more."
+          );
+          void track("intake_quota_exceeded", { plan: regJson.plan });
+          setPhase("error");
+          return;
+        }
+        const hint =
+          typeof regJson.error === "string"
+            ? regJson.error
+            : `Could not start session (${regRes.status})`;
+        throw new Error(
+          "hint" in regJson && typeof (regJson as { hint?: string }).hint === "string"
+            ? `${hint}. ${(regJson as { hint: string }).hint}`
+            : hint
+        );
+      }
+
+      const intake = regJson.intake;
+      setResult(intake);
+      saveActiveSession(intake);
+      void track("intake_analysis_complete", { sessionId: intake.session_id, plan: regJson.plan });
       setPhase("results");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -118,7 +157,8 @@ export default function IntakePage() {
             <CardHeader className="space-y-2">
               <CardTitle className="text-xl">Paste the job description</CardTitle>
               <div className="text-sm text-muted-foreground">
-                We&apos;ll extract the role, required skills, and generate 12 tailored questions
+                We&apos;ll extract the role, required skills, and generate tailored questions (count
+                depends on your plan).
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -209,7 +249,14 @@ export default function IntakePage() {
                     <div className="font-medium text-foreground">Something went wrong</div>
                     <div className="mt-1 text-muted-foreground">{error ?? "Unknown error"}</div>
                   </div>
-                  <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    {quotaExceeded ? (
+                      <Button asChild>
+                        <a href="/#pricing" onClick={() => void track("intake_click_pricing_quota")}>
+                          View pricing
+                        </a>
+                      </Button>
+                    ) : null}
                     <Button
                       onClick={() => void runAnalysisSequence()}
                       disabled={jdText.trim().length < MIN_JD_CHAR_COUNT}
@@ -221,6 +268,7 @@ export default function IntakePage() {
                       onClick={() => {
                         setPhase("input");
                         setError(null);
+                        setQuotaExceeded(false);
                         setJdTooShortMessage(false);
                       }}
                     >
@@ -246,7 +294,8 @@ export default function IntakePage() {
 
                   <div className="space-y-2">
                     <div className="text-sm text-muted-foreground">
-                      We&apos;ll extract the role, required skills, and generate 12 tailored questions
+                      We&apos;ll extract the role, required skills, and generate tailored questions (count
+                      depends on your plan).
                     </div>
                     {jdTooShortMessage ? (
                       <p className="text-sm text-red-600" role="alert">

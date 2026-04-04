@@ -79,7 +79,7 @@ export function PricingSection({ signedIn = false }: { signedIn?: boolean }) {
         <PricingCard
           title="Free"
           price="$0"
-          features={["1 session/month", "5 questions", "No PDF report"]}
+          features={["1 mock interview/month", "3 questions per interview", "No PDF report"]}
           ctaLabel={signedIn ? "Get started" : "Try free"}
           ctaHref="/app/intake"
           ctaGoogleSignIn={!signedIn}

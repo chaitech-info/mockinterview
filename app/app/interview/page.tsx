@@ -78,25 +78,52 @@ export default function InterviewPage() {
   const mimeRef = React.useRef<string>("");
 
   React.useEffect(() => {
+    let cancelled = false;
+
     if (isSupabaseConfigured()) {
       try {
         const supabase = getSupabaseClient();
         supabase.auth.getSession().then(({ data }) => {
-          if (!data.session) setRequiresLogin(true);
+          if (!cancelled && !data.session) setRequiresLogin(true);
         });
       } catch {
-        setRequiresLogin(true);
+        if (!cancelled) setRequiresLogin(true);
       }
     } else {
       setRequiresLogin(true);
     }
 
-    const stored = loadActiveSession();
-    if (stored?.session_id) setSessionId(stored.session_id);
-    if (stored?.questions?.length) {
-      setSessionQuestions(mapApiToUiQuestions(stored.questions));
-    }
-    setSessionReady(true);
+    void (async () => {
+      const stored = loadActiveSession();
+      if (stored?.session_id) setSessionId(stored.session_id);
+
+      if (stored?.questions?.length) {
+        let raw = stored.questions;
+        try {
+          const r = await fetch("/api/entitlements", { cache: "no-store" });
+          const data = (await r.json()) as {
+            ok?: boolean;
+            maxQuestionsPerInterview?: number | null;
+          };
+          if (
+            !cancelled &&
+            data.ok &&
+            data.maxQuestionsPerInterview != null &&
+            typeof data.maxQuestionsPerInterview === "number"
+          ) {
+            raw = raw.slice(0, data.maxQuestionsPerInterview);
+          }
+        } catch {
+          // If entitlements fail, use stored questions (intake already enforced for new sessions).
+        }
+        if (!cancelled) setSessionQuestions(mapApiToUiQuestions(raw));
+      }
+      if (!cancelled) setSessionReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   React.useEffect(() => {
