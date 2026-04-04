@@ -344,9 +344,10 @@ function ReportPageInner() {
         <div className="mt-8 space-y-8">
           <div
             ref={reportPdfRef}
-            className="space-y-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
+            data-report-pdf-root
+            className="report-pdf-root w-full max-w-full space-y-8 rounded-xl border border-border bg-card p-5 shadow-md sm:p-6"
           >
-            <header className="border-b border-gray-200 pb-4">
+            <header className="border-b border-border pb-4">
               <h2 className="text-xl font-semibold tracking-tight text-foreground">Interview report</h2>
               <p className="mt-1 text-sm text-muted-foreground">{new Date().toLocaleString()}</p>
             </header>
@@ -366,31 +367,34 @@ function ReportPageInner() {
                     </div>
                   </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm leading-relaxed text-muted-foreground text-pretty">
                   {display?.subtext ?? reportMock.subtext}
                 </div>
               </CardHeader>
             </Card>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {METRIC_ORDER.map((key) => (
                 <ScoreCard
                   key={key}
                   label={key}
                   score={display ? display.metrics[key] : reportMock.metrics[key]}
+                  className="min-w-0"
                 />
               ))}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <Card className="border-gray-200 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-lg">Strengths</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {(display?.strengths ?? reportMock.strengths).map((s) => (
-                    <div key={s} className="rounded-xl border border-border bg-background p-4">
-                      <div className="border-l-4 border-foreground pl-3 text-sm font-medium">{s}</div>
+                    <div key={s} className="min-w-0 rounded-xl border border-border bg-background p-4">
+                      <div className="border-l-4 border-foreground pl-3 text-sm font-medium leading-relaxed break-words text-pretty">
+                        {s}
+                      </div>
                     </div>
                   ))}
                 </CardContent>
@@ -402,8 +406,8 @@ function ReportPageInner() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {(display?.improvements ?? reportMock.improvements).map((s) => (
-                    <div key={s} className="rounded-xl border border-border bg-background p-4">
-                      <div className="border-l-4 border-muted-foreground/40 pl-3 text-sm font-medium">
+                    <div key={s} className="min-w-0 rounded-xl border border-border bg-background p-4">
+                      <div className="border-l-4 border-muted-foreground/40 pl-3 text-sm font-medium leading-relaxed break-words text-pretty">
                         {s}
                       </div>
                     </div>
@@ -417,9 +421,12 @@ function ReportPageInner() {
                 <CardTitle className="text-lg">Study plan</CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="grid gap-3 sm:grid-cols-3">
+                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {(display?.studyPlan ?? reportMock.studyPlan).map((s) => (
-                    <li key={s} className="rounded-xl border border-border bg-background p-4 text-sm">
+                    <li
+                      key={s}
+                      className="min-w-0 rounded-xl border border-border bg-background p-4 text-sm leading-relaxed text-foreground break-words"
+                    >
                       {s}
                     </li>
                   ))}
@@ -431,35 +438,55 @@ function ReportPageInner() {
               <CardHeader>
                 <CardTitle className="text-lg">Question-by-question breakdown</CardTitle>
               </CardHeader>
-              <CardContent className="overflow-visible">
-                <div className="w-full overflow-visible">
-                  <table className="w-full min-w-[680px] border-separate border-spacing-0 text-sm">
+              <CardContent className="min-w-0 overflow-x-auto sm:overflow-x-visible">
+                <div className="w-full min-w-0 max-w-full">
+                  <table className="w-full min-w-0 max-w-full table-fixed border-separate border-spacing-0 text-sm">
+                    <colgroup>
+                      <col style={{ width: "7%" }} />
+                      <col style={{ width: "20%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "57%" }} />
+                    </colgroup>
                     <thead>
                       <tr className="text-left text-muted-foreground">
-                        <th className="border-b border-border pb-3 pr-4 font-medium">Q#</th>
-                        <th className="border-b border-border pb-3 pr-4 font-medium">Category</th>
-                        <th className="border-b border-border pb-3 pr-4 font-medium">Score</th>
-                        <th className="border-b border-border pb-3 font-medium">Feedback</th>
+                        <th className="border-b border-border pb-3 pr-2 text-xs font-semibold uppercase tracking-wide">
+                          Q#
+                        </th>
+                        <th className="border-b border-border pb-3 pr-2 text-xs font-semibold uppercase tracking-wide">
+                          Category
+                        </th>
+                        <th className="border-b border-border pb-3 pr-2 text-xs font-semibold uppercase tracking-wide">
+                          Score
+                        </th>
+                        <th className="border-b border-border pb-3 pr-0 text-xs font-semibold uppercase tracking-wide">
+                          Feedback
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {questionRows.map((row) => (
                         <tr key={`${row.id}-${row.category}`} className="align-top">
-                          <td className="border-b border-border py-4 pr-4 font-medium">{row.id}</td>
-                          <td className="border-b border-border py-4 pr-4">{row.category}</td>
-                          <td className="border-b border-border py-4 pr-4">
+                          <td className="border-b border-border py-3 pr-2 font-medium tabular-nums">
+                            {row.id}
+                          </td>
+                          <td className="border-b border-border py-3 pr-2 break-words text-foreground">
+                            {row.category}
+                          </td>
+                          <td className="border-b border-border py-3 pr-2 whitespace-nowrap">
                             {row.score != null ? (
-                              <Badge className={cn(scoreTone(row.score))}>
+                              <Badge className={cn("shrink-0", scoreTone(row.score))}>
                                 {row.score.toFixed(1)}/10
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground">Skipped</span>
                             )}
                           </td>
-                          <td className="border-b border-border py-4 text-muted-foreground">
-                            {row.score == null
-                              ? "No answer submitted for this question."
-                              : row.feedback || "—"}
+                          <td className="border-b border-border py-3 pl-0 pr-0 text-muted-foreground">
+                            <div className="min-w-0 max-w-full leading-relaxed break-words [overflow-wrap:anywhere]">
+                              {row.score == null
+                                ? "No answer submitted for this question."
+                                : row.feedback || "—"}
+                            </div>
                           </td>
                         </tr>
                       ))}

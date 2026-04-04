@@ -17,6 +17,23 @@ export async function downloadReportPdfFromElement(
     backgroundColor: "#ffffff",
     windowWidth: element.scrollWidth,
     windowHeight: element.scrollHeight,
+    onclone: (_doc, cloned) => {
+      const root = cloned.querySelector("[data-report-pdf-root]");
+      if (!root) return;
+      root.querySelectorAll("table").forEach((t) => {
+        const table = t as HTMLTableElement;
+        table.style.tableLayout = "fixed";
+        table.style.width = "100%";
+        table.style.minWidth = "0";
+      });
+      root.querySelectorAll("tbody td:last-child").forEach((cell) => {
+        const el = cell as HTMLElement;
+        el.style.verticalAlign = "top";
+        el.style.overflowWrap = "break-word";
+        el.style.wordBreak = "break-word";
+        el.style.hyphens = "auto";
+      });
+    },
   });
 
   const imgData = canvas.toDataURL("image/png", 1);
@@ -24,7 +41,7 @@ export async function downloadReportPdfFromElement(
 
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 12;
+  const margin = 8;
   const contentWidth = pageWidth - margin * 2;
   const contentHeight = pageHeight - margin * 2;
 
