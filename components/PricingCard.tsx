@@ -68,19 +68,21 @@ export function PricingCard({
   return (
     <Card
       className={cn(
-        "relative h-full overflow-hidden",
+        "h-full overflow-hidden",
         highlighted
           ? "border-border shadow-md ring-1 ring-border"
           : "border-border shadow-sm"
       )}
     >
-      {highlighted ? (
-        <div className="absolute right-4 top-4">
-          <Badge className="bg-foreground text-background hover:bg-foreground">Recommended</Badge>
-        </div>
-      ) : null}
       <CardHeader className="space-y-3">
-        <CardTitle className="text-xl">{title}</CardTitle>
+        <div className="space-y-2">
+          <CardTitle className="text-balance text-xl leading-snug">{title}</CardTitle>
+          {highlighted ? (
+            <Badge className="w-fit bg-foreground text-background hover:bg-foreground">
+              Recommended
+            </Badge>
+          ) : null}
+        </div>
         <div className="flex items-end gap-2">
           <div className="text-4xl font-semibold tracking-tight">{price}</div>
           {price !== "$0" && !/[\/]/.test(price) ? (
