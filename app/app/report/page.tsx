@@ -23,6 +23,7 @@ import {
   studyPlanFromSnapshot,
 } from "@/lib/report-build";
 import { buildReportViewModel, type ReportViewModel } from "@/lib/report/from-session";
+import { downloadReportPdfFromElement } from "@/lib/report/download-report-pdf";
 import type { ReportSnapshot } from "@/lib/report-snapshot";
 import { loadReportSnapshot } from "@/lib/report-snapshot";
 import type { ApiQuestion } from "@/lib/session-store";
@@ -97,6 +98,7 @@ function ReportPageInner() {
   const [fromSnapshot, setFromSnapshot] = React.useState(false);
 
   const [downloading, setDownloading] = React.useState(false);
+  const reportPdfRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -194,13 +196,25 @@ function ReportPageInner() {
     };
   }, [sessionId, storageHydrated]);
 
-  function downloadPdfMock() {
+  async function handleDownloadPdf() {
+    const el = reportPdfRef.current;
+    if (!el) return;
     setDownloading(true);
     void track("report_download_pdf");
-    window.setTimeout(() => {
+    try {
+      const safe =
+        sessionId?.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 40) ?? "report";
+      await downloadReportPdfFromElement(el, `prepai-interview-report-${safe}.pdf`);
+    } catch (e) {
+      console.error(e);
+      window.alert(
+        e instanceof Error
+          ? e.message
+          : "Could not create the PDF. Try again, or use your browser’s print dialog."
+      );
+    } finally {
       setDownloading(false);
-      window.alert("Mock download: PDF report generated.");
-    }, 900);
+    }
   }
 
   if (!storageHydrated || phase === "loading") {
@@ -328,123 +342,133 @@ function ReportPageInner() {
         ) : null}
 
         <div className="mt-8 space-y-8">
-          <Card className="border-gray-200 shadow-sm">
-            <CardHeader className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="text-sm text-muted-foreground">Overall grade</div>
-                  <div className="flex items-center gap-3">
-                    <Badge className="bg-foreground text-background hover:bg-foreground">
-                      {display?.grade ?? reportMock.grade}
-                    </Badge>
-                    <div className="text-2xl font-semibold tracking-tight">
-                      {(display?.overallScore ?? reportMock.overallScore).toFixed(1)} / 10
+          <div
+            ref={reportPdfRef}
+            className="space-y-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
+          >
+            <header className="border-b border-gray-200 pb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-foreground">Interview report</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{new Date().toLocaleString()}</p>
+            </header>
+
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="text-sm text-muted-foreground">Overall grade</div>
+                    <div className="flex items-center gap-3">
+                      <Badge className="bg-foreground text-background hover:bg-foreground">
+                        {display?.grade ?? reportMock.grade}
+                      </Badge>
+                      <div className="text-2xl font-semibold tracking-tight">
+                        {(display?.overallScore ?? reportMock.overallScore).toFixed(1)} / 10
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {display?.subtext ?? reportMock.subtext}
-              </div>
-            </CardHeader>
-          </Card>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {METRIC_ORDER.map((key) => (
-              <ScoreCard
-                key={key}
-                label={key}
-                score={display ? display.metrics[key] : reportMock.metrics[key]}
-              />
-            ))}
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="border-gray-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg">Strengths</CardTitle>
+                <div className="text-sm text-muted-foreground">
+                  {display?.subtext ?? reportMock.subtext}
+                </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {(display?.strengths ?? reportMock.strengths).map((s) => (
-                  <div key={s} className="rounded-xl border border-border bg-background p-4">
-                    <div className="border-l-4 border-foreground pl-3 text-sm font-medium">{s}</div>
-                  </div>
-                ))}
-              </CardContent>
             </Card>
 
-            <Card className="border-gray-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg">Areas to improve</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {(display?.improvements ?? reportMock.improvements).map((s) => (
-                  <div key={s} className="rounded-xl border border-border bg-background p-4">
-                    <div className="border-l-4 border-muted-foreground/40 pl-3 text-sm font-medium">
-                      {s}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {METRIC_ORDER.map((key) => (
+                <ScoreCard
+                  key={key}
+                  label={key}
+                  score={display ? display.metrics[key] : reportMock.metrics[key]}
+                />
+              ))}
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="border-gray-200 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Strengths</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {(display?.strengths ?? reportMock.strengths).map((s) => (
+                    <div key={s} className="rounded-xl border border-border bg-background p-4">
+                      <div className="border-l-4 border-foreground pl-3 text-sm font-medium">{s}</div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="border-gray-200 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Areas to improve</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {(display?.improvements ?? reportMock.improvements).map((s) => (
+                    <div key={s} className="rounded-xl border border-border bg-background p-4">
+                      <div className="border-l-4 border-muted-foreground/40 pl-3 text-sm font-medium">
+                        {s}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg">Study plan</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="grid gap-3 sm:grid-cols-3">
+                  {(display?.studyPlan ?? reportMock.studyPlan).map((s) => (
+                    <li key={s} className="rounded-xl border border-border bg-background p-4 text-sm">
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg">Question-by-question breakdown</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-visible">
+                <div className="w-full overflow-visible">
+                  <table className="w-full min-w-[680px] border-separate border-spacing-0 text-sm">
+                    <thead>
+                      <tr className="text-left text-muted-foreground">
+                        <th className="border-b border-border pb-3 pr-4 font-medium">Q#</th>
+                        <th className="border-b border-border pb-3 pr-4 font-medium">Category</th>
+                        <th className="border-b border-border pb-3 pr-4 font-medium">Score</th>
+                        <th className="border-b border-border pb-3 font-medium">Feedback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {questionRows.map((row) => (
+                        <tr key={`${row.id}-${row.category}`} className="align-top">
+                          <td className="border-b border-border py-4 pr-4 font-medium">{row.id}</td>
+                          <td className="border-b border-border py-4 pr-4">{row.category}</td>
+                          <td className="border-b border-border py-4 pr-4">
+                            {row.score != null ? (
+                              <Badge className={cn(scoreTone(row.score))}>
+                                {row.score.toFixed(1)}/10
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">Skipped</span>
+                            )}
+                          </td>
+                          <td className="border-b border-border py-4 text-muted-foreground">
+                            {row.score == null
+                              ? "No answer submitted for this question."
+                              : row.feedback || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           </div>
-
-          <Card className="border-gray-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Study plan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="grid gap-3 sm:grid-cols-3">
-                {(display?.studyPlan ?? reportMock.studyPlan).map((s) => (
-                  <li key={s} className="rounded-xl border border-border bg-background p-4 text-sm">
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Question-by-question breakdown</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[680px] border-separate border-spacing-0 text-sm">
-                  <thead>
-                    <tr className="text-left text-muted-foreground">
-                      <th className="border-b border-border pb-3 pr-4 font-medium">Q#</th>
-                      <th className="border-b border-border pb-3 pr-4 font-medium">Category</th>
-                      <th className="border-b border-border pb-3 pr-4 font-medium">Score</th>
-                      <th className="border-b border-border pb-3 font-medium">Feedback</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {questionRows.map((row) => (
-                      <tr key={`${row.id}-${row.category}`} className="align-top">
-                        <td className="border-b border-border py-4 pr-4 font-medium">{row.id}</td>
-                        <td className="border-b border-border py-4 pr-4">{row.category}</td>
-                        <td className="border-b border-border py-4 pr-4">
-                          {row.score != null ? (
-                            <Badge className={cn(scoreTone(row.score))}>
-                              {row.score.toFixed(1)}/10
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">Skipped</span>
-                          )}
-                        </td>
-                        <td className="border-b border-border py-4 text-muted-foreground">
-                          {row.score == null
-                            ? "No answer submitted for this question."
-                            : row.feedback || "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
 
           <Card className="border-gray-200 shadow-sm">
             <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -455,7 +479,7 @@ function ReportPageInner() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" onClick={downloadPdfMock} disabled={downloading}>
+                <Button size="lg" onClick={() => void handleDownloadPdf()} disabled={downloading}>
                   <Download className="h-4 w-4" />
                   {downloading ? "Preparing PDF…" : "Download PDF report"}
                 </Button>
