@@ -23,7 +23,7 @@ import {
   studyPlanFromSnapshot,
 } from "@/lib/report-build";
 import { buildReportViewModel, type ReportViewModel } from "@/lib/report/from-session";
-import { downloadReportPdfFromElement } from "@/lib/report/download-report-pdf";
+import { buildReportPdfModel, downloadReportPdf } from "@/lib/report/generate-report-pdf";
 import type { ReportSnapshot } from "@/lib/report-snapshot";
 import { loadReportSnapshot } from "@/lib/report-snapshot";
 import type { ApiQuestion } from "@/lib/session-store";
@@ -98,7 +98,6 @@ function ReportPageInner() {
   const [fromSnapshot, setFromSnapshot] = React.useState(false);
 
   const [downloading, setDownloading] = React.useState(false);
-  const reportPdfRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -196,15 +195,20 @@ function ReportPageInner() {
     };
   }, [sessionId, storageHydrated]);
 
-  async function handleDownloadPdf() {
-    const el = reportPdfRef.current;
-    if (!el) return;
+  function handleDownloadPdf() {
     setDownloading(true);
     void track("report_download_pdf");
     try {
       const safe =
         sessionId?.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 40) ?? "report";
-      await downloadReportPdfFromElement(el, `prepai-interview-report-${safe}.pdf`);
+      const rows = questionRows.map((row) => ({
+        id: row.id,
+        category: row.category,
+        score: row.score ?? null,
+        feedback: row.feedback ?? "",
+      }));
+      const model = buildReportPdfModel(display ?? null, rows, METRIC_ORDER);
+      downloadReportPdf(model, `prepai-interview-report-${safe}.pdf`);
     } catch (e) {
       console.error(e);
       window.alert(
@@ -342,11 +346,7 @@ function ReportPageInner() {
         ) : null}
 
         <div className="mt-8 space-y-8">
-          <div
-            ref={reportPdfRef}
-            data-report-pdf-root
-            className="report-pdf-root w-full max-w-full space-y-8 rounded-xl border border-border bg-card p-5 shadow-md sm:p-6"
-          >
+          <div className="w-full max-w-full space-y-8 rounded-xl border border-border bg-card p-5 shadow-md sm:p-6">
             <header className="border-b border-border pb-4">
               <h2 className="text-xl font-semibold tracking-tight text-foreground">Interview report</h2>
               <p className="mt-1 text-sm text-muted-foreground">{new Date().toLocaleString()}</p>
@@ -506,7 +506,7 @@ function ReportPageInner() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" onClick={() => void handleDownloadPdf()} disabled={downloading}>
+                <Button size="lg" onClick={handleDownloadPdf} disabled={downloading}>
                   <Download className="h-4 w-4" />
                   {downloading ? "Preparing PDF…" : "Download PDF report"}
                 </Button>
