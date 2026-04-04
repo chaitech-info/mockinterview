@@ -75,6 +75,8 @@ export default function InterviewPage() {
   const [feedbackPayload, setFeedbackPayload] = React.useState<AnswerWebhookResponse | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [micError, setMicError] = React.useState<string | null>(null);
+  const [billingPlan, setBillingPlan] = React.useState<"free" | "plan_3" | "plan_5" | null>(null);
+  const [showFreeTierUpsell, setShowFreeTierUpsell] = React.useState(false);
 
   const streamRef = React.useRef<MediaStream | null>(null);
   const recorderRef = React.useRef<MediaRecorder | null>(null);
@@ -107,8 +109,12 @@ export default function InterviewPage() {
           const r = await fetch("/api/entitlements", { cache: "no-store" });
           const data = (await r.json()) as {
             ok?: boolean;
+            plan?: "free" | "plan_3" | "plan_5";
             maxQuestionsPerInterview?: number | null;
           };
+          if (!cancelled && data.ok && data.plan) {
+            setBillingPlan(data.plan);
+          }
           if (
             !cancelled &&
             data.ok &&
@@ -296,6 +302,11 @@ export default function InterviewPage() {
         );
       }
       void track("interview_finish_session");
+      if (billingPlan === "free") {
+        void track("interview_free_tier_upsell_shown");
+        setShowFreeTierUpsell(true);
+        return;
+      }
       window.location.href = "/app/report";
       return;
     }
@@ -396,11 +407,12 @@ export default function InterviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
-        <Stepper currentStep={2} />
+    <>
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
+          <Stepper currentStep={2} />
 
-        <div className="mt-8 flex flex-col gap-6 lg:flex-row">
+          <div className="mt-8 flex flex-col gap-6 lg:flex-row">
           <div className="flex-1 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm text-muted-foreground">
@@ -573,6 +585,47 @@ export default function InterviewPage() {
         </div>
       </div>
     </div>
+
+      {showFreeTierUpsell ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="free-tier-upsell-title"
+        >
+          <Card className="w-full max-w-md border-gray-200 shadow-lg">
+            <CardHeader className="space-y-2">
+              <CardTitle id="free-tier-upsell-title" className="text-xl">
+                Want the full interview?
+              </CardTitle>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Your free session includes three questions. To practice the full question bank from your
+                job description, upgrade to a paid plan.
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button variant="outline" asChild className="w-full sm:w-auto">
+                <a
+                  href="/#pricing"
+                  onClick={() => void track("interview_click_see_plans_upsell")}
+                >
+                  See plans
+                </a>
+              </Button>
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  void track("interview_upsell_continue_to_report");
+                  window.location.href = "/app/report";
+                }}
+              >
+                Continue to report
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+    </>
   );
 }
 
