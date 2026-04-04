@@ -136,7 +136,9 @@ export function downloadReportPdf(model: ReportPdfModel, fileName: string): void
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.text("OVERALL GRADE", MARGIN, y);
-  y += 5;
+  // jsPDF uses baselines: 26pt grade extends far above its baseline, so we need a
+  // clear gap below the label line (5mm was too tight and overlapped the heading).
+  y += 12;
 
   doc.setFontSize(26);
   doc.setFont("helvetica", "bold");
@@ -145,7 +147,7 @@ export function downloadReportPdf(model: ReportPdfModel, fileName: string): void
   doc.setFontSize(16);
   doc.setFont("helvetica", "normal");
   doc.text(`${model.overallScore.toFixed(1)} / 10`, MARGIN + gradeW + 6, y);
-  y += 8;
+  y += 10;
 
   doc.setFontSize(10.5);
   doc.setTextColor(...MUTED);
