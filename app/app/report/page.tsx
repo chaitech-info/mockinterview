@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Download, RotateCcw } from "lucide-react";
 
 import { ScoreCard } from "@/components/ScoreCard";
 import { Stepper } from "@/components/Stepper";
@@ -19,7 +18,6 @@ import {
   studyPlanFromSnapshot,
 } from "@/lib/report-build";
 import { loadReportSnapshot } from "@/lib/report-snapshot";
-import { track } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 
 function scoreTone(score: number) {
@@ -29,7 +27,6 @@ function scoreTone(score: number) {
 }
 
 export default function ReportPage() {
-  const [downloading, setDownloading] = React.useState(false);
   const snapshot = React.useMemo(() => loadReportSnapshot(), []);
 
   const avg = snapshot ? averageScore(snapshot.rows) : null;
@@ -37,15 +34,6 @@ export default function ReportPage() {
   const strengths = snapshot ? strengthsFromRows(snapshot.rows) : [];
   const improvements = snapshot ? improvementsFromRows(snapshot.rows) : [];
   const studyPlan = snapshot ? studyPlanFromSnapshot(snapshot) : [];
-
-  function downloadPdfMock() {
-    setDownloading(true);
-    void track("report_download_pdf");
-    window.setTimeout(() => {
-      setDownloading(false);
-      window.alert("PDF export is not wired yet — your scores above are saved from this session.");
-    }, 900);
-  }
 
   if (!snapshot?.rows?.length) {
     return (
@@ -221,32 +209,6 @@ export default function ReportPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200 shadow-sm">
-            <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="text-base font-semibold">Ready to save this report?</div>
-                <div className="text-sm text-muted-foreground">
-                  Download a scored PDF and keep practicing.
-                </div>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" onClick={downloadPdfMock} disabled={downloading}>
-                  <Download className="h-4 w-4" />
-                  {downloading ? "Preparing PDF…" : "Download PDF report"}
-                </Button>
-                <Button asChild size="lg" variant="outline">
-                  <a
-                    href="/app/intake"
-                    onClick={() => void track("report_start_new_session")}
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Start a new session
-                  </a>
-                </Button>
               </div>
             </CardContent>
           </Card>
