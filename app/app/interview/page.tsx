@@ -15,6 +15,7 @@ import { track } from "@/lib/firebase/client";
 import type { AnswerWebhookResponse } from "@/lib/interview/answer-api";
 import { extractExampleAnswerFromPayload, submitAnswerMultipart } from "@/lib/interview/answer-api";
 import { extensionForMime, pickAudioMimeType } from "@/lib/interview/recording";
+import { buildReportSnapshotFromInterview, saveReportSnapshot } from "@/lib/report-snapshot";
 import { loadActiveSession } from "@/lib/session-store";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
@@ -33,6 +34,8 @@ type ScoreRow = {
   category: UiQuestion["category"];
   score: number;
   feedback: string;
+  strength?: string;
+  improvement?: string;
 };
 
 function mapApiToUiQuestions(
@@ -68,6 +71,7 @@ export default function InterviewPage() {
   const [currentIdx, setCurrentIdx] = React.useState(0);
   const [phase, setPhase] = React.useState<Phase>("idle");
   const [scoreRows, setScoreRows] = React.useState<ScoreRow[]>([]);
+  const scoreRowsRef = React.useRef<ScoreRow[]>([]);
   const [feedbackPayload, setFeedbackPayload] = React.useState<AnswerWebhookResponse | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [micError, setMicError] = React.useState<string | null>(null);
@@ -256,15 +260,19 @@ export default function InterviewPage() {
       setFeedbackPayload(data);
       setScoreRows((prev) => {
         if (prev.some((r) => r.id === question.id)) return prev;
-        return [
+        const next = [
           ...prev,
           {
             id: question.id,
             category: question.category,
             score: data.score,
             feedback: data.feedback,
+            strength: data.strength,
+            improvement: data.improvement,
           },
         ];
+        scoreRowsRef.current = next;
+        return next;
       });
       setPhase("feedback");
       void track("interview_feedback_shown", { questionId: question.id, score: data.score });
@@ -282,6 +290,11 @@ export default function InterviewPage() {
 
     const next = currentIdx + 1;
     if (next >= total) {
+      if (sessionId) {
+        saveReportSnapshot(
+          buildReportSnapshotFromInterview(sessionId, questions, scoreRowsRef.current)
+        );
+      }
       void track("interview_finish_session");
       window.location.href = "/app/report";
       return;

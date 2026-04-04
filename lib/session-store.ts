@@ -6,6 +6,8 @@ export type ApiQuestion = {
   ideal_keywords?: string[];
 };
 
+import { clearReportSnapshot } from "@/lib/report-snapshot";
+
 export type IntakeResponse = {
   success: boolean;
   session_id: string;
@@ -40,5 +42,6 @@ export function clearActiveSession() {
   } catch {
     // ignore
   }
+  clearReportSnapshot();
 }
 
