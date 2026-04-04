@@ -11,6 +11,8 @@ create table if not exists public.user_entitlements (
 comment on table public.user_entitlements is
   'Subscription tier: free (default if row missing), plan_3, plan_5. Update via Paddle webhook or Supabase dashboard.';
 
+-- If public.interview_sessions already exists (e.g. from 20260329120000_interview_sessions.sql),
+-- this block is skipped. The app uses column session_id, not n8n_session_id.
 create table if not exists public.interview_sessions (
   id uuid primary key default gen_random_uuid (),
   user_id uuid not null references auth.users (id) on delete cascade,
