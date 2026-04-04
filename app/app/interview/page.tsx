@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Loader2, Lock, Mic, SkipForward } from "lucide-react";
 
+import { PricingPlansGrid } from "@/components/PricingPlansGrid";
 import { QuestionCard } from "@/components/QuestionCard";
 import { Stepper } from "@/components/Stepper";
 import { Waveform } from "@/components/Waveform";
@@ -588,39 +589,45 @@ export default function InterviewPage() {
 
       {showFreeTierUpsell ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="free-tier-upsell-title"
         >
-          <Card className="w-full max-w-md border-gray-200 shadow-lg">
-            <CardHeader className="space-y-2">
+          <Card className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col border-gray-200 shadow-lg">
+            <CardHeader className="shrink-0 space-y-2 border-b border-border pb-4">
               <CardTitle id="free-tier-upsell-title" className="text-xl">
                 Want the full interview?
               </CardTitle>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Your free session includes three questions. To practice the full question bank from your
-                job description, upgrade to a paid plan.
+                Your free session includes three questions. Upgrade to unlock more mock interviews and the
+                full question bank from your job description.
               </p>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-              <Button variant="outline" asChild className="w-full sm:w-auto">
-                <a
-                  href="/#pricing"
-                  onClick={() => void track("interview_click_see_plans_upsell")}
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden pt-4">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+                <PricingPlansGrid signedIn gridClassName="pb-2" />
+              </div>
+              <div className="shrink-0 space-y-3 border-t border-border pt-4">
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    void track("interview_upsell_continue_to_report");
+                    window.location.href = "/app/report";
+                  }}
                 >
-                  See plans
-                </a>
-              </Button>
-              <Button
-                className="w-full sm:w-auto"
-                onClick={() => {
-                  void track("interview_upsell_continue_to_report");
-                  window.location.href = "/app/report";
-                }}
-              >
-                Continue to report
-              </Button>
+                  Continue to report
+                </Button>
+                <p className="text-center text-xs text-muted-foreground">
+                  <a
+                    href="/#pricing"
+                    className="underline underline-offset-4 hover:text-foreground"
+                    onClick={() => void track("interview_click_pricing_footer_upsell")}
+                  >
+                    Open full pricing page
+                  </a>
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
