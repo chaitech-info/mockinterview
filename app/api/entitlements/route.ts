@@ -28,7 +28,7 @@ export async function GET() {
     const message = e instanceof Error ? e.message : "Failed to load entitlements";
     const hint =
       message.includes("relation") && message.includes("does not exist")
-        ? "Apply the SQL migration in supabase/migrations/20260404120000_interview_plans.sql in your Supabase project."
+        ? "Apply Supabase migrations (including 20260408120000_profiles_interview_credits.sql) in your Supabase project."
         : undefined;
     return NextResponse.json(
       { ok: false, error: message, ...(hint ? { hint } : {}) },

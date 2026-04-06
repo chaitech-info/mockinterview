@@ -104,18 +104,18 @@ export async function POST(request: Request) {
       const admin = createSupabaseAdmin();
       if (admin) {
         const { data: row } = await admin
-          .from("user_entitlements")
+          .from("profiles")
           .select("interview_credits")
-          .eq("user_id", user.id)
+          .eq("id", user.id)
           .maybeSingle();
         const cur = typeof row?.interview_credits === "number" ? row.interview_credits : 0;
         await admin
-          .from("user_entitlements")
+          .from("profiles")
           .update({
             interview_credits: cur + 1,
             updated_at: new Date().toISOString(),
           })
-          .eq("user_id", user.id);
+          .eq("id", user.id);
       }
       throw new Error(upsertError.message);
     }
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
     const message = e instanceof Error ? e.message : "Failed to register session";
     const hint =
       message.includes("relation") && message.includes("does not exist")
-        ? "Apply Supabase migrations in supabase/migrations/ (including interview_credits)."
+        ? "Apply Supabase migrations in supabase/migrations/ (including profiles + interview_credits)."
         : undefined;
     return NextResponse.json(
       { ok: false, error: message, ...(hint ? { hint } : {}) },

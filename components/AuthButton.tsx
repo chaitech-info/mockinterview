@@ -45,6 +45,14 @@ export function AuthButton() {
     supabase.auth
       .getUser()
       .then(({ data: { user } }) => {
+        if (user) {
+          void supabase.rpc("ensure_user_entitlements").then(
+            () => {},
+            () => {
+              /* migration may not be applied yet */
+            }
+          );
+        }
         const profile = user ? getUserProfile(user) : null;
         setState(
           user && profile ? { status: "signed_in", ...profile } : { status: "signed_out" }
@@ -67,6 +75,14 @@ export function AuthButton() {
 
       if (_event === "SIGNED_IN") {
         void track("auth_signed_in");
+        if (session?.user) {
+          void supabase.rpc("ensure_user_entitlements").then(
+            () => {},
+            () => {
+              /* migration may not be applied yet */
+            }
+          );
+        }
         if (user && profile) {
           saveUser({
             id: user.id,

@@ -28,9 +28,19 @@ export async function getEntitlementsForUser(
 ): Promise<EntitlementsPayload> {
   await supabase.rpc("ensure_user_entitlements");
 
+  const { data: profileRow, error: profileError } = await supabase
+    .from("profiles")
+    .select("interview_credits")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError) {
+    throw new Error(profileError.message);
+  }
+
   const { data: entRow, error: entError } = await supabase
     .from("user_entitlements")
-    .select("plan, interview_credits")
+    .select("plan")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -40,7 +50,7 @@ export async function getEntitlementsForUser(
 
   const plan = normalizePlan(entRow?.plan as string | undefined);
   const credits =
-    typeof entRow?.interview_credits === "number" ? entRow.interview_credits : 0;
+    typeof profileRow?.interview_credits === "number" ? profileRow.interview_credits : 0;
 
   return {
     plan,

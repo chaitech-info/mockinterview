@@ -45,7 +45,15 @@ export async function GET(request: Request) {
   }
 
   if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (!exchangeError) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.rpc("ensure_user_entitlements");
+      }
+    }
   }
 
   return NextResponse.redirect(new URL(next, url.origin));
