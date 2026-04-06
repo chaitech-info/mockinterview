@@ -6,6 +6,7 @@ import { PricingCard } from "@/components/PricingCard";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PaddleCatalogItem } from "@/lib/paddle/catalog-map";
 import type { PaddleCheckoutEnvironment, PaddleKeyMode } from "@/lib/paddle/checkout";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 type ApiResponse = {
@@ -31,6 +32,33 @@ export function PricingPlansGrid({
   const [checkoutEnvironment, setCheckoutEnvironment] =
     React.useState<PaddleCheckoutEnvironment | null>(null);
   const [paddleKeyMode, setPaddleKeyMode] = React.useState<PaddleKeyMode | null>(null);
+  const [checkoutCustomData, setCheckoutCustomData] = React.useState<
+    Record<string, unknown> | undefined
+  >();
+
+  React.useEffect(() => {
+    if (!signedIn || !isSupabaseConfigured()) {
+      setCheckoutCustomData(undefined);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const supabase = getSupabaseClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!cancelled && user?.id) {
+          setCheckoutCustomData({ supabase_user_id: user.id });
+        }
+      } catch {
+        if (!cancelled) setCheckoutCustomData(undefined);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -118,6 +146,7 @@ export function PricingPlansGrid({
                 paddlePriceId={plan.priceId}
                 paddleCheckoutEnvironment={checkoutEnvironment ?? undefined}
                 paddleKeyMode={paddleKeyMode ?? undefined}
+                checkoutCustomData={checkoutCustomData}
               />
             ))}
       </div>

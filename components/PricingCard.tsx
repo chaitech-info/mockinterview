@@ -27,6 +27,8 @@ export function PricingCard({
   paddlePriceId,
   paddleCheckoutEnvironment,
   paddleKeyMode,
+  /** Passed to Paddle checkout so webhooks can attach `subscription.custom_data` to your Supabase user. */
+  checkoutCustomData,
 }: {
   title: string;
   price: string;
@@ -43,6 +45,7 @@ export function PricingCard({
   paddleCheckoutEnvironment?: PaddleCheckoutEnvironment;
   /** From `/api/paddle/prices` — refines JWT / token mismatch hints. */
   paddleKeyMode?: PaddleKeyMode;
+  checkoutCustomData?: Record<string, unknown>;
 }) {
   const [checkoutLoading, setCheckoutLoading] = React.useState(false);
 
@@ -55,6 +58,7 @@ export function PricingCard({
       void track("paddle_checkout_open", { priceId: paddlePriceId });
       await openPaddleCheckout(paddlePriceId, paddleCheckoutEnvironment, {
         paddleKeyMode,
+        customData: checkoutCustomData,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Checkout could not start.";

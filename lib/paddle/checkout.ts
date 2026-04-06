@@ -146,7 +146,7 @@ async function getPaddleForCheckout(env: PaddleCheckoutEnvironment): Promise<Pad
 export async function openPaddleCheckout(
   priceId: string,
   checkoutEnvironment?: PaddleCheckoutEnvironment,
-  options?: { paddleKeyMode?: PaddleKeyMode }
+  options?: { paddleKeyMode?: PaddleKeyMode; customData?: Record<string, unknown> }
 ): Promise<void> {
   const id = priceId.trim();
   if (!id) {
@@ -192,5 +192,8 @@ export async function openPaddleCheckout(
       theme: "light",
       successUrl: `${origin}/app/intake?checkout=success`,
     },
+    ...(options?.customData && Object.keys(options.customData).length > 0
+      ? { customData: options.customData }
+      : {}),
   });
 }
