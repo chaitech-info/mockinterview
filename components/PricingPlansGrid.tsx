@@ -6,6 +6,7 @@ import { PricingCard } from "@/components/PricingCard";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PaddleCatalogItem } from "@/lib/paddle/catalog-map";
 import type { PaddleCheckoutEnvironment, PaddleKeyMode } from "@/lib/paddle/checkout";
+import { getCurrentUser } from "@/lib/supabase/get-current-user";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -42,15 +43,26 @@ export function PricingPlansGrid({
       setCheckoutCustomData(undefined);
       return;
     }
-    const supabase = getSupabaseClient();
-
     function syncCustomData() {
-      void supabase.auth.getUser().then(({ data: { user } }) => {
-        setCheckoutCustomData(user?.email ? { email: user.email } : undefined);
+      void getCurrentUser().then((user) => {
+        if (!user) {
+          setCheckoutCustomData(undefined);
+          return;
+        }
+        const next: Record<string, unknown> = { supabase_user_id: user.id };
+        if (user.email) next.email = user.email;
+        setCheckoutCustomData(next);
       });
     }
 
     syncCustomData();
+
+    let supabase: ReturnType<typeof getSupabaseClient>;
+    try {
+      supabase = getSupabaseClient();
+    } catch {
+      return;
+    }
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {

@@ -10,7 +10,8 @@ import {
   type PaddleCheckoutEnvironment,
   type PaddleKeyMode,
 } from "@/lib/paddle/checkout";
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getCurrentUser } from "@/lib/supabase/get-current-user";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,13 +60,8 @@ export function PricingCard({
       const merged: Record<string, unknown> = { ...(checkoutCustomData ?? {}) };
 
       if (isSupabaseConfigured()) {
-        const supabase = getSupabaseClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user?.email) {
-          merged.email = user.email;
-        } else {
+        const user = await getCurrentUser();
+        if (!user) {
           window.alert(
             "Sign in with Google first so we can attach this payment to your account (we send your email to Paddle)."
           );
@@ -74,6 +70,8 @@ export function PricingCard({
           );
           return;
         }
+        merged.supabase_user_id = user.id;
+        if (user.email) merged.email = user.email;
       }
 
       void track("paddle_checkout_open", { priceId: paddlePriceId });
