@@ -1,21 +1,29 @@
 "use client";
 
 import * as React from "react";
+import type { User } from "@supabase/supabase-js";
 
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { getUserProfile } from "@/lib/supabase/user-profile";
 
-export type AuthSessionStatus = "loading" | "signed_in" | "signed_out";
+export type AuthSessionState =
+  | { status: "loading" }
+  | { status: "unconfigured" }
+  | { status: "signed_out" }
+  | { status: "signed_in"; user: User };
 
 /**
- * Mirrors session handling in AuthButton so landing CTAs can match sign-in state.
+ * Session from the browser Supabase client (cookie-backed via createBrowserClient).
+ * Uses onAuthStateChange so INITIAL_SESSION runs after storage is ready — a one-shot
+ * getUser()/getSession() on mount often returns null while the OAuth cookie is still hydrating.
  */
-export function useAuthSession(): AuthSessionStatus {
-  const [status, setStatus] = React.useState<AuthSessionStatus>("loading");
+export function useAuthSession(): AuthSessionState {
+  const [state, setState] = React.useState<AuthSessionState>(() =>
+    isSupabaseConfigured() ? { status: "loading" } : { status: "unconfigured" }
+  );
 
   React.useEffect(() => {
     if (!isSupabaseConfigured()) {
-      setStatus("signed_out");
+      setState({ status: "unconfigured" });
       return;
     }
 
@@ -23,28 +31,20 @@ export function useAuthSession(): AuthSessionStatus {
     try {
       supabase = getSupabaseClient();
     } catch {
-      setStatus("signed_out");
+      setState({ status: "unconfigured" });
       return;
     }
 
-    // Prefer getUser() for the first paint after OAuth — it validates the JWT and
-    // can reflect sign-in more reliably than getSession() alone in some redirects.
-    supabase.auth
-      .getUser()
-      .then(({ data: { user } }) => {
-        const profile = user ? getUserProfile(user) : null;
-        setStatus(user && profile ? "signed_in" : "signed_out");
-      })
-      .catch(() => setStatus("signed_out"));
-
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null;
-      const profile = user ? getUserProfile(user) : null;
-      setStatus(session && profile ? "signed_in" : "signed_out");
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setState(
+        session?.user
+          ? { status: "signed_in", user: session.user }
+          : { status: "signed_out" }
+      );
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
-  return status;
+  return state;
 }

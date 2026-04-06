@@ -3,25 +3,26 @@
 import * as React from "react";
 import Link from "next/link";
 
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
 
 /**
  * Shared links for all /app/* routes so users can reach Dashboard without returning home.
  */
 export function AppSubNav() {
+  const auth = useAuthSession();
   const [credits, setCredits] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     if (!isSupabaseConfigured()) return;
+    if (auth.status !== "signed_in") {
+      setCredits(null);
+      return;
+    }
 
     let cancelled = false;
     void (async () => {
       try {
-        const supabase = getSupabaseClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user || cancelled) return;
         const r = await fetch("/api/entitlements", { cache: "no-store" });
         const data = (await r.json()) as { ok?: boolean; interviewCredits?: number };
         if (!cancelled && data.ok && typeof data.interviewCredits === "number") {
@@ -34,7 +35,7 @@ export function AppSubNav() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [auth]);
 
   return (
     <nav

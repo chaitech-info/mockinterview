@@ -122,7 +122,7 @@ export default function Home() {
                   Dashboard
                 </Link>
               </Button>
-              {authSession !== "signed_in" ? (
+              {authSession.status !== "signed_in" ? (
                 <Button
                   type="button"
                   size="sm"
@@ -163,7 +163,7 @@ export default function Home() {
                 </p>
 
                 <div className="animate-fade-up-delayed2 flex flex-col gap-3 sm:flex-row">
-                  {authSession === "signed_in" ? (
+                  {authSession.status === "signed_in" ? (
                     <Button asChild size="lg">
                       <a
                         href="/app/intake"
@@ -325,7 +325,7 @@ export default function Home() {
         <section id="pricing" className="bg-gray-50 scroll-mt-24">
           <Container>
             <div className="py-16 lg:py-24">
-              <PricingSection signedIn={authSession === "signed_in"} />
+              <PricingSection signedIn={authSession.status === "signed_in"} />
             </div>
           </Container>
         </section>

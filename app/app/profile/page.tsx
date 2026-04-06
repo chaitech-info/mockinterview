@@ -7,46 +7,58 @@ import { Loader2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { track } from "@/lib/firebase/client";
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { signInWithGoogle, signOut } from "@/lib/supabase/auth";
 import { getUserProfile } from "@/lib/supabase/user-profile";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { saveUser } from "@/lib/user-store";
 
 export default function ProfilePage() {
-  const [phase, setPhase] = React.useState<"loading" | "sign_in" | "ready">("loading");
-  const [email, setEmail] = React.useState<string | null>(null);
-  const [name, setName] = React.useState<string | null>(null);
-  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
+  const auth = useAuthSession();
   const [credits, setCredits] = React.useState<number | null>(null);
+
+  const email = React.useMemo(() => {
+    if (auth.status !== "signed_in") return null;
+    return getUserProfile(auth.user).email;
+  }, [auth]);
+
+  const name = React.useMemo(() => {
+    if (auth.status !== "signed_in") return null;
+    return getUserProfile(auth.user).name;
+  }, [auth]);
+
+  const avatarUrl = React.useMemo(() => {
+    if (auth.status !== "signed_in") return null;
+    return getUserProfile(auth.user).avatarUrl;
+  }, [auth]);
 
   React.useEffect(() => {
     void track("profile_view");
   }, []);
 
   React.useEffect(() => {
+    if (auth.status !== "signed_in") return;
+
+    const supabase = getSupabaseClient();
+    const user = auth.user;
+    const profile = getUserProfile(user);
+
+    saveUser({
+      id: user.id,
+      email: profile.email,
+      name: profile.name,
+      avatarUrl: profile.avatarUrl,
+    });
+
+    void supabase.rpc("ensure_user_entitlements").then(
+      () => {},
+      () => {
+        /* migration / network */
+      }
+    );
+
     let cancelled = false;
-
-    async function load() {
-      if (!isSupabaseConfigured()) {
-        setPhase("sign_in");
-        return;
-      }
-
-      const supabase = getSupabaseClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        if (!cancelled) setPhase("sign_in");
-        return;
-      }
-
-      const profile = getUserProfile(user);
-      if (!cancelled) {
-        setEmail(profile.email);
-        setName(profile.name);
-        setAvatarUrl(profile.avatarUrl);
-      }
-
+    void (async () => {
       try {
         const r = await fetch("/api/entitlements", { cache: "no-store" });
         const data = (await r.json()) as { ok?: boolean; interviewCredits?: number };
@@ -56,17 +68,31 @@ export default function ProfilePage() {
       } catch {
         /* ignore */
       }
+    })();
 
-      if (!cancelled) setPhase("ready");
-    }
-
-    void load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [auth]);
 
-  if (phase === "loading") {
+  if (auth.status === "unconfigured") {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto max-w-lg px-4 py-10 sm:py-16">
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">Sign in unavailable</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Supabase is not configured on this deployment.
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (auth.status === "loading") {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto flex max-w-lg items-center justify-center gap-2 px-4 py-20 text-sm text-muted-foreground">
@@ -77,7 +103,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (phase === "sign_in") {
+  if (auth.status === "signed_out") {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto max-w-lg px-4 py-10 sm:py-16">

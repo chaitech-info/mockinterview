@@ -9,71 +9,53 @@ import { track } from "@/lib/firebase/client";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { popNextPath, signInWithGoogle, signOut } from "@/lib/supabase/auth";
 import { getUserProfile } from "@/lib/supabase/user-profile";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { clearUser, saveUser } from "@/lib/user-store";
 
-type UserState =
-  | { status: "loading" }
-  | { status: "signed_out" }
-  | {
-      status: "signed_in";
-      email: string | null;
-      name: string | null;
-      avatarUrl: string | null;
-    };
-
 export function AuthButton() {
-  const [state, setState] = React.useState<UserState>({ status: "loading" });
+  const auth = useAuthSession();
   const [authError, setAuthError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setAuthError("Auth is not configured (missing Supabase env on this deployment).");
-      setState({ status: "signed_out" });
-      return;
-    }
+    if (auth.status !== "signed_in") return;
 
     let supabase: ReturnType<typeof getSupabaseClient>;
     try {
       supabase = getSupabaseClient();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not start Supabase client.";
-      setAuthError(msg);
-      setState({ status: "signed_out" });
+    } catch {
       return;
     }
 
-    supabase.auth
-      .getUser()
-      .then(({ data: { user } }) => {
-        if (user) {
-          void supabase.rpc("ensure_user_entitlements").then(
-            () => {},
-            () => {
-              /* migration may not be applied yet */
-            }
-          );
-        }
-        const profile = user ? getUserProfile(user) : null;
-        setState(
-          user && profile ? { status: "signed_in", ...profile } : { status: "signed_out" }
-        );
-        if (user && profile) {
-          saveUser({
-            id: user.id,
-            email: profile.email,
-            name: profile.name,
-            avatarUrl: profile.avatarUrl,
-          });
-        }
-      })
-      .catch(() => setState({ status: "signed_out" }));
+    const user = auth.user;
+    const profile = getUserProfile(user);
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null;
-      const profile = user ? getUserProfile(user) : null;
-      setState(session && profile ? { status: "signed_in", ...profile } : { status: "signed_out" });
+    void supabase.rpc("ensure_user_entitlements").then(
+      () => {},
+      () => {
+        /* migration may not be applied yet */
+      }
+    );
 
-      if (_event === "SIGNED_IN") {
+    saveUser({
+      id: user.id,
+      email: profile.email,
+      name: profile.name,
+      avatarUrl: profile.avatarUrl,
+    });
+  }, [auth]);
+
+  React.useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    let supabase: ReturnType<typeof getSupabaseClient>;
+    try {
+      supabase = getSupabaseClient();
+    } catch {
+      return;
+    }
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN") {
         void track("auth_signed_in");
         if (session?.user) {
           void supabase.rpc("ensure_user_entitlements").then(
@@ -82,10 +64,9 @@ export function AuthButton() {
               /* migration may not be applied yet */
             }
           );
-        }
-        if (user && profile) {
+          const profile = getUserProfile(session.user);
           saveUser({
-            id: user.id,
+            id: session.user.id,
             email: profile.email,
             name: profile.name,
             avatarUrl: profile.avatarUrl,
@@ -97,7 +78,7 @@ export function AuthButton() {
         }
       }
 
-      if (_event === "SIGNED_OUT") {
+      if (event === "SIGNED_OUT") {
         void track("auth_signed_out");
         clearUser();
       }
@@ -106,7 +87,21 @@ export function AuthButton() {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  if (state.status === "loading") {
+  if (auth.status === "unconfigured") {
+    return (
+      <div className="flex items-center gap-2">
+        <Button variant="outline" disabled>
+          <LogIn className="h-4 w-4" />
+          Sign in
+        </Button>
+        <div className="max-w-[min(100%,280px)] text-xs text-muted-foreground">
+          Auth is not configured (missing Supabase env on this deployment).
+        </div>
+      </div>
+    );
+  }
+
+  if (auth.status === "loading") {
     return (
       <Button variant="outline" disabled>
         <LogIn className="h-4 w-4" />
@@ -115,8 +110,9 @@ export function AuthButton() {
     );
   }
 
-  if (state.status === "signed_in") {
-    const label = state.name ?? state.email ?? "Signed in";
+  if (auth.status === "signed_in") {
+    const profile = getUserProfile(auth.user);
+    const label = profile.name ?? profile.email ?? "Signed in";
     return (
       <div className="flex items-center gap-2">
         <Link
@@ -125,10 +121,10 @@ export function AuthButton() {
           title="Open profile"
           onClick={() => void track("auth_profile_click")}
         >
-          {state.avatarUrl ? (
+          {profile.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={state.avatarUrl}
+              src={profile.avatarUrl}
               alt=""
               className="h-8 w-8 shrink-0 rounded-full border border-border object-cover"
               referrerPolicy="no-referrer"
@@ -184,4 +180,3 @@ export function AuthButton() {
     </div>
   );
 }
-
