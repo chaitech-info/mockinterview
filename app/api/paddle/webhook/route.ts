@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   extractFirstPriceId,
   extractSupabaseUserId,
+  flattenPaddleTransactionEntity,
   resolvePlanFromSubscription,
 } from "@/lib/paddle/subscription-webhook";
 import {
@@ -48,7 +49,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true, reason: "no_data" });
   }
 
-  const payload = data as Record<string, unknown>;
+  const rawPayload = data as Record<string, unknown>;
+  /** JSON:API-style `attributes` merged in for subscription + transaction entities. */
+  const payload = flattenPaddleTransactionEntity(rawPayload);
 
   const supabase = createSupabaseAdmin();
   if (!supabase) {
@@ -56,15 +59,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Database not configured" }, { status: 503 });
   }
 
-  if (eventType === "transaction.completed" || eventType.startsWith("transaction.")) {
-    if (eventType !== "transaction.completed") {
+  if (eventType.startsWith("transaction.")) {
+    /** Grant credits on paid + completed so one-time purchases work if only `transaction.paid` is subscribed. */
+    if (eventType !== "transaction.paid" && eventType !== "transaction.completed") {
       return NextResponse.json({ ok: true, ignored: true, event_type: eventType });
     }
 
+    /** Prefer transaction id so `paid` + `completed` for the same checkout dedupe once (not per-event evt_ ids). */
     const dedupeId =
-      typeof parsed.event_id === "string" && parsed.event_id.length > 0
-        ? parsed.event_id
-        : extractTransactionDedupeId(payload);
+      extractTransactionDedupeId(payload) ??
+      (typeof parsed.event_id === "string" && parsed.event_id.length > 0 ? parsed.event_id : null);
     if (!dedupeId) {
       console.warn("[Paddle webhook] No event_id or transaction id for idempotency");
       return NextResponse.json({ ok: true, skipped: true, reason: "no_dedupe_id" });
@@ -81,7 +85,11 @@ export async function POST(request: Request) {
 
     const resolved = resolveCreditsFromTransaction(payload);
     if (!resolved.ok) {
-      console.warn("[Paddle webhook] Transaction credits skipped", { reason: resolved.reason });
+      console.warn("[Paddle webhook] Transaction credits skipped", {
+        reason: resolved.reason,
+        priceId: extractFirstPriceId(payload),
+        event_type: eventType,
+      });
       return NextResponse.json({
         ok: true,
         skipped: true,
