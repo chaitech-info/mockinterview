@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { track } from "@/lib/firebase/client";
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import { listInterviewSessionsForUser, type InterviewSessionSummary } from "@/lib/supabase/interview-session";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
 
 function formatWhen(iso: string) {
   try {
@@ -24,59 +24,60 @@ function formatWhen(iso: string) {
 }
 
 export default function DashboardPage() {
-  const [phase, setPhase] = React.useState<"loading" | "sign_in" | "ready" | "error">("loading");
+  const auth = useAuthSession();
   const [sessions, setSessions] = React.useState<InterviewSessionSummary[]>([]);
+  /** False until the first list fetch finishes for the current `userId` (avoids a one-frame "ready" with no data). */
+  const [sessionsListReady, setSessionsListReady] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  const userId = auth.status === "signed_in" ? auth.user.id : null;
 
   React.useEffect(() => {
     void track("dashboard_view");
   }, []);
 
   React.useEffect(() => {
+    if (!userId) {
+      setSessions([]);
+      setErrorMessage(null);
+      setSessionsListReady(false);
+      return;
+    }
+
     let cancelled = false;
+    setSessionsListReady(false);
+    setErrorMessage(null);
 
-    async function run() {
-      if (!isSupabaseConfigured()) {
-        setPhase("error");
-        setErrorMessage("Supabase is not configured on this deployment.");
-        return;
-      }
-
-      let supabase: ReturnType<typeof getSupabaseClient>;
-      try {
-        supabase = getSupabaseClient();
-      } catch (e) {
-        if (!cancelled) {
-          setPhase("error");
-          setErrorMessage(e instanceof Error ? e.message : "Could not connect.");
-        }
-        return;
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        if (!cancelled) setPhase("sign_in");
-        return;
-      }
-
-      const { data, error } = await listInterviewSessionsForUser(user.id);
+    void (async () => {
+      const { data, error } = await listInterviewSessionsForUser(userId);
       if (cancelled) return;
       if (error) {
         setErrorMessage(error.message);
-        setPhase("error");
+        setSessionsListReady(true);
         return;
       }
       setSessions(data);
-      setPhase("ready");
-    }
+      setSessionsListReady(true);
+    })();
 
-    void run();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userId]);
+
+  const phase = (() => {
+    if (auth.status === "loading") return "loading" as const;
+    if (auth.status === "unconfigured") return "error" as const;
+    if (auth.status === "signed_out") return "sign_in" as const;
+    if (!sessionsListReady) return "loading" as const;
+    if (errorMessage) return "error" as const;
+    return "ready" as const;
+  })();
+
+  const configError =
+    auth.status === "unconfigured"
+      ? "Supabase is not configured on this deployment."
+      : errorMessage;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,7 +121,7 @@ export default function DashboardPage() {
               <CardTitle className="text-lg">Couldn’t load dashboard</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <p>{errorMessage}</p>
+              <p>{configError}</p>
               <Button asChild variant="outline">
                 <Link href="/">Back to home</Link>
               </Button>
