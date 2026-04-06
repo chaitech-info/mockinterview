@@ -200,8 +200,9 @@ export default function IntakePage() {
             <CardHeader className="space-y-2">
               <CardTitle className="text-xl">Paste the job description</CardTitle>
               <div className="text-sm text-muted-foreground">
-                We&apos;ll extract the role, required skills, and generate tailored questions (count
-                depends on your plan).
+                We&apos;ll extract the role, required skills, and generate up to 12 tailored questions.
+                You can answer the first three in the mock interview; the rest appear in your session list
+                as locked.
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -337,8 +338,9 @@ export default function IntakePage() {
 
                   <div className="space-y-2">
                     <div className="text-sm text-muted-foreground">
-                      We&apos;ll extract the role, required skills, and generate tailored questions (count
-                      depends on your plan).
+                      We&apos;ll extract the role, required skills, and generate up to 12 tailored questions.
+                      You can answer the first three in the mock interview; the rest appear in your session
+                      list as locked.
                     </div>
                     {jdTooShortMessage ? (
                       <p className="text-sm text-red-600" role="alert">

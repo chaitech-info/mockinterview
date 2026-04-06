@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 
-import {
-  FULL_INTERVIEW_QUESTIONS,
-  playableQuestionCapFromCreditsBeforeConsume,
-} from "@/lib/entitlements/plan";
+import { FULL_INTERVIEW_QUESTIONS, LIMITED_INTERVIEW_QUESTIONS } from "@/lib/entitlements/plan";
 import { getEntitlementsForUser } from "@/lib/entitlements/resolve";
 import type { IntakeResponse } from "@/lib/session-store";
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -50,45 +46,8 @@ export async function POST(request: Request) {
   try {
     const ent = await getEntitlementsForUser(supabase, user.id);
 
-    if (!ent.canStartNewInterview) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "quota_exceeded",
-          message:
-            "You have no interview credits left. Purchase a credit pack to start a new mock interview.",
-          plan: ent.plan,
-          interviewCredits: ent.interviewCredits,
-        },
-        { status: 403 }
-      );
-    }
-
-    const { data: consumed, error: rpcError } = await supabase.rpc("consume_interview_credit", {
-      p_user_id: user.id,
-    });
-
-    if (rpcError) {
-      throw new Error(rpcError.message);
-    }
-    if (consumed !== true) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "quota_exceeded",
-          message:
-            "You have no interview credits left. Purchase a credit pack to start a new mock interview.",
-          plan: ent.plan,
-          interviewCredits: 0,
-        },
-        { status: 403 }
-      );
-    }
-
-    const creditsBeforeConsume = ent.interviewCredits;
-    const cap = playableQuestionCapFromCreditsBeforeConsume(creditsBeforeConsume);
     const fullBank = payload.questions.slice(0, FULL_INTERVIEW_QUESTIONS);
-    const playableCount = Math.min(cap, fullBank.length);
+    const playableCount = Math.min(LIMITED_INTERVIEW_QUESTIONS, fullBank.length);
 
     const { error: upsertError } = await supabase.from("interview_sessions").upsert(
       {
@@ -106,22 +65,6 @@ export async function POST(request: Request) {
     );
 
     if (upsertError) {
-      const admin = createSupabaseAdmin();
-      if (admin) {
-        const { data: row } = await admin
-          .from("profiles")
-          .select("interview_credits")
-          .eq("id", user.id)
-          .maybeSingle();
-        const cur = typeof row?.interview_credits === "number" ? row.interview_credits : 0;
-        await admin
-          .from("profiles")
-          .update({
-            interview_credits: cur + 1,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user.id);
-      }
       throw new Error(upsertError.message);
     }
 
@@ -138,7 +81,7 @@ export async function POST(request: Request) {
       ok: true,
       intake: response,
       plan: ent.plan,
-      interviewCredits: ent.interviewCredits - 1,
+      interviewCredits: ent.interviewCredits,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to register session";

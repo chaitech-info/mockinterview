@@ -25,6 +25,7 @@ import {
 import { getCurrentUser } from "@/lib/supabase/get-current-user";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { LIMITED_INTERVIEW_QUESTIONS } from "@/lib/entitlements/plan";
 
 type Phase = "idle" | "recording" | "thinking" | "feedback";
 
@@ -138,13 +139,9 @@ export default function InterviewPage() {
 
       if (stored?.questions?.length) {
         const raw = stored.questions;
-        const playable =
-          typeof stored.playable_question_count === "number"
-            ? stored.playable_question_count
-            : raw.length;
         if (!cancelled) {
           setBankQuestions(mapApiToUiQuestions(raw));
-          setPlayableCount(Math.min(playable, raw.length));
+          setPlayableCount(Math.min(LIMITED_INTERVIEW_QUESTIONS, raw.length));
         }
       }
       if (!cancelled) setSessionReady(true);
