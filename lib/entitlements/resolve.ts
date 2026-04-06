@@ -2,17 +2,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   type BillingPlan,
-  interviewsAllowedPerMonth,
   maxQuestionsForPlan,
-  startOfUtcMonth,
 } from "@/lib/entitlements/plan";
 
 export type EntitlementsPayload = {
   plan: BillingPlan;
-  interviewsUsedThisMonth: number;
-  interviewsAllowedThisMonth: number;
-  maxQuestionsPerInterview: number | null;
+  /** Remaining interview starts (credit balance). */
+  interviewCredits: number;
   canStartNewInterview: boolean;
+  maxQuestionsPerInterview: number | null;
+  /** @deprecated Monthly limits replaced by interview credits; kept 0 for API compatibility. */
+  interviewsUsedThisMonth: number;
+  /** @deprecated Monthly limits replaced by interview credits; kept 0 for API compatibility. */
+  interviewsAllowedThisMonth: number;
 };
 
 function normalizePlan(raw: string | null | undefined): BillingPlan {
@@ -24,12 +26,11 @@ export async function getEntitlementsForUser(
   supabase: SupabaseClient,
   userId: string
 ): Promise<EntitlementsPayload> {
-  const now = new Date();
-  const monthStart = startOfUtcMonth(now).toISOString();
+  await supabase.rpc("ensure_user_entitlements");
 
   const { data: entRow, error: entError } = await supabase
     .from("user_entitlements")
-    .select("plan")
+    .select("plan, interview_credits")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -38,26 +39,15 @@ export async function getEntitlementsForUser(
   }
 
   const plan = normalizePlan(entRow?.plan as string | undefined);
-
-  const { count, error: countError } = await supabase
-    .from("interview_sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .gte("created_at", monthStart);
-
-  if (countError) {
-    throw new Error(countError.message);
-  }
-
-  const interviewsUsedThisMonth = count ?? 0;
-  const interviewsAllowedThisMonth = interviewsAllowedPerMonth(plan);
-  const canStartNewInterview = interviewsUsedThisMonth < interviewsAllowedThisMonth;
+  const credits =
+    typeof entRow?.interview_credits === "number" ? entRow.interview_credits : 0;
 
   return {
     plan,
-    interviewsUsedThisMonth,
-    interviewsAllowedThisMonth,
+    interviewCredits: credits,
+    canStartNewInterview: credits > 0,
     maxQuestionsPerInterview: maxQuestionsForPlan(plan),
-    canStartNewInterview,
+    interviewsUsedThisMonth: 0,
+    interviewsAllowedThisMonth: 0,
   };
 }

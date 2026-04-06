@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { track } from "@/lib/firebase/client";
 import { getIntakeWebhookUrl } from "@/lib/n8n-webhooks";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import type { IntakeResponse } from "@/lib/session-store";
 import { clearActiveSession, saveActiveSession } from "@/lib/session-store";
@@ -30,7 +30,32 @@ export default function IntakePage() {
   const [quotaExceeded, setQuotaExceeded] = React.useState(false);
   const [jdTooShortMessage, setJdTooShortMessage] = React.useState(false);
   const [result, setResult] = React.useState<IntakeResponse | null>(null);
+  const [interviewCredits, setInterviewCredits] = React.useState<number | null>(null);
   const timeouts = React.useRef<number[]>([]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!isSupabaseConfigured()) return;
+      try {
+        const supabase = getSupabaseClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        const r = await fetch("/api/entitlements", { cache: "no-store" });
+        const data = (await r.json()) as { ok?: boolean; interviewCredits?: number };
+        if (!cancelled && data.ok && typeof data.interviewCredits === "number") {
+          setInterviewCredits(data.interviewCredits);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -112,6 +137,7 @@ export default function IntakePage() {
         error?: string;
         message?: string;
         plan?: string;
+        interviewCredits?: number;
       };
 
       if (!regRes.ok || !regJson.ok || !regJson.intake) {
@@ -119,7 +145,7 @@ export default function IntakePage() {
           setQuotaExceeded(true);
           setError(
             regJson.message ??
-              "You have used all mock interviews for this month on your current plan. Upgrade to unlock more."
+              "You have no interview credits left. Purchase a credit pack to start a new mock interview."
           );
           void track("intake_quota_exceeded", { plan: regJson.plan });
           setPhase("error");
@@ -137,6 +163,9 @@ export default function IntakePage() {
       }
 
       const intake = regJson.intake;
+      if (typeof regJson.interviewCredits === "number") {
+        setInterviewCredits(regJson.interviewCredits);
+      }
       setResult(intake);
       saveActiveSession(intake);
       const { error: saveErr } = await upsertInterviewSessionFromIntake({
@@ -160,6 +189,13 @@ export default function IntakePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-16">
         <Stepper currentStep={1} />
+
+        {interviewCredits !== null ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Interviews left:{" "}
+            <strong className="tabular-nums text-foreground">{interviewCredits}</strong>
+          </p>
+        ) : null}
 
         <div className="mt-8">
           <Card className="shadow-sm">
