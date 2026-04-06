@@ -15,10 +15,10 @@ export async function POST(request: Request) {
   const signature = request.headers.get("paddle-signature");
   const secret = process.env.PADDLE_WEBHOOK_SECRET?.trim();
 
-  if (!secret) {
-    console.error("[Paddle webhook] PADDLE_WEBHOOK_SECRET is not set");
-    return NextResponse.json({ ok: false, error: "Webhook secret not configured" }, { status: 503 });
-  }
+  // if (!secret) {
+  //   console.error("[Paddle webhook] PADDLE_WEBHOOK_SECRET is not set");
+  //   return NextResponse.json({ ok: false, error: "Webhook secret not configured" }, { status: 503 });
+  // }
 
   if (!verifyPaddleWebhookSignature(rawBody, signature, secret)) {
     return NextResponse.json({ ok: false, error: "Invalid signature" }, { status: 400 });
