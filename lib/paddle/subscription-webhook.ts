@@ -11,16 +11,30 @@ export function extractSupabaseUserId(data: Record<string, unknown>): string | n
   return typeof v === "string" && v.length > 0 ? v : null;
 }
 
-export function extractFirstPriceId(data: Record<string, unknown>): string | null {
-  const items = data.items;
-  if (!Array.isArray(items) || items.length === 0) return null;
-  const row = items[0] as Record<string, unknown>;
+function priceIdFromLineItem(row: Record<string, unknown>): string | null {
   const price = row.price;
   if (price && typeof price === "object" && price !== null) {
     const id = (price as { id?: string }).id;
     if (typeof id === "string" && id.length > 0) return id;
   }
   if (typeof row.price_id === "string" && row.price_id.length > 0) return row.price_id;
+  return null;
+}
+
+export function extractFirstPriceId(data: Record<string, unknown>): string | null {
+  const items = data.items;
+  if (Array.isArray(items) && items.length > 0) {
+    const id = priceIdFromLineItem(items[0] as Record<string, unknown>);
+    if (id) return id;
+  }
+  const details = data.details;
+  if (details && typeof details === "object" && !Array.isArray(details)) {
+    const lineItems = (details as Record<string, unknown>).line_items;
+    if (Array.isArray(lineItems) && lineItems.length > 0) {
+      const id = priceIdFromLineItem(lineItems[0] as Record<string, unknown>);
+      if (id) return id;
+    }
+  }
   return null;
 }
 

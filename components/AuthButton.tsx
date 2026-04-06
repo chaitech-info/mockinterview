@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { LogIn, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -102,24 +103,29 @@ export function AuthButton() {
     const label = state.name ?? state.email ?? "Signed in";
     return (
       <div className="flex items-center gap-2">
-        <div className="hidden items-center gap-2 sm:flex">
+        <Link
+          href="/app/profile"
+          className="flex min-w-0 max-w-[min(100%,220px)] items-center gap-2 rounded-md px-1 py-0.5 outline-none ring-offset-background transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          title="Open profile"
+          onClick={() => void track("auth_profile_click")}
+        >
           {state.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={state.avatarUrl}
-              alt={label}
-              className="h-8 w-8 rounded-full border border-border object-cover"
+              alt=""
+              className="h-8 w-8 shrink-0 rounded-full border border-border object-cover"
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-foreground">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-foreground">
               {(label[0] ?? "U").toUpperCase()}
             </div>
           )}
-          <div className="max-w-[180px] truncate text-sm text-muted-foreground">
+          <span className="hidden max-w-[180px] truncate text-sm text-muted-foreground sm:inline">
             {label}
-          </div>
-        </div>
+          </span>
+        </Link>
         <Button
           variant="outline"
           onClick={async () => {

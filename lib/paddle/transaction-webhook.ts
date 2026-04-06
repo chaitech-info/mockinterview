@@ -1,5 +1,5 @@
 import type { BillingPlan } from "@/lib/entitlements/plan";
-import { creditsFromPaddlePriceId } from "@/lib/paddle/credits-from-price";
+import { creditsForCompletedTransaction } from "@/lib/paddle/credits-from-price";
 import { extractSupabaseUserId, extractFirstPriceId } from "@/lib/paddle/subscription-webhook";
 
 /** Stable id for idempotency (prefer transaction id). */
@@ -28,7 +28,8 @@ export function resolveCreditsFromTransaction(data: Record<string, unknown>): Tr
     return { ok: false, reason: "no_supabase_user_id" };
   }
   const priceId = extractFirstPriceId(data);
-  const add = creditsFromPaddlePriceId(priceId);
+  const origin = typeof data.origin === "string" ? data.origin : null;
+  const add = creditsForCompletedTransaction(priceId, origin);
   if (add == null) {
     return { ok: false, reason: priceId ? "unmapped_price" : "no_price" };
   }
