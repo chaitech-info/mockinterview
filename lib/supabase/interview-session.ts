@@ -45,7 +45,6 @@ export async function upsertInterviewSessionFromIntake(params: {
         jd_text: params.jdText,
         extracted_data: (params.intake.extracted ?? null) as Record<string, unknown> | null,
         questions: params.intake.questions,
-        question_scores: [],
         status: "active",
       },
       { onConflict: "session_id" }
@@ -67,7 +66,6 @@ export async function updateInterviewSessionScores(params: {
     const supabase = getSupabaseClient();
     const avg = averageScoreFromStored(params.questionScores);
     const patch: Record<string, unknown> = {
-      question_scores: params.questionScores,
       status: params.status ?? "active",
     };
     if (avg != null) {
@@ -109,8 +107,52 @@ function averageScoreFromStored(scores: StoredQuestionScore[]): number | null {
   return Math.round((sum / nums.length) * 10) / 10;
 }
 
+/** Columns on `public.sessions` used for the dashboard list (matches live DB without `question_scores`). */
+export const SESSIONS_LIST_SELECT =
+  "session_id,status,created_at,completed_at,jd_text,questions,overall_score" as const;
+
 /**
- * Lists the signed-in user's sessions, newest first (by `created_at`).
+ * Maps PostgREST rows to dashboard summaries (shared by API route and optional client helpers).
+ */
+export function mapSessionRowsToSummaries(
+  rows: readonly Record<string, unknown>[]
+): InterviewSessionSummary[] {
+  if (!rows.length) return [];
+
+  return rows.map((row) => {
+    const questions = row.questions;
+    const qCount = Array.isArray(questions) ? questions.length : 0;
+    const jd = typeof row.jd_text === "string" ? row.jd_text.trim() : "";
+    const jd_preview =
+      jd.length > 90 ? `${jd.slice(0, 90).trim()}…` : jd || null;
+
+    const created = String(row.created_at ?? "");
+    const completed =
+      typeof row.completed_at === "string" && row.completed_at
+        ? row.completed_at
+        : null;
+    const updatedAt = completed ?? created;
+
+    const fromOverall =
+      typeof row.overall_score === "number" && !Number.isNaN(row.overall_score)
+        ? Math.round(row.overall_score * 10) / 10
+        : null;
+
+    return {
+      session_id: String(row.session_id ?? ""),
+      status: row.status === "completed" ? "completed" : "active",
+      created_at: created,
+      updated_at: updatedAt,
+      jd_preview,
+      question_count: qCount,
+      avg_score: fromOverall,
+    };
+  });
+}
+
+/**
+ * Lists the signed-in user's sessions from the browser Supabase client.
+ * Prefer calling `GET /api/dashboard/sessions` from the UI to avoid cross-origin fetch issues.
  */
 export async function listInterviewSessionsForUser(userId: string): Promise<{
   data: InterviewSessionSummary[];
@@ -120,49 +162,15 @@ export async function listInterviewSessionsForUser(userId: string): Promise<{
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(SESSIONS_TABLE)
-      .select(
-        "session_id,status,created_at,completed_at,jd_text,questions,question_scores,overall_score"
-      )
+      .select(SESSIONS_LIST_SELECT)
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
     if (error) return { data: [], error: new Error(error.message) };
-    if (!data?.length) return { data: [], error: null };
-
-    const summaries: InterviewSessionSummary[] = data.map((row) => {
-      const questions = row.questions;
-      const qCount = Array.isArray(questions) ? questions.length : 0;
-      const rawScores = row.question_scores;
-      const scores: StoredQuestionScore[] = Array.isArray(rawScores) ? rawScores : [];
-      const jd = typeof row.jd_text === "string" ? row.jd_text.trim() : "";
-      const jd_preview =
-        jd.length > 90 ? `${jd.slice(0, 90).trim()}…` : jd || null;
-
-      const created = row.created_at as string;
-      const completed =
-        typeof row.completed_at === "string" && row.completed_at
-          ? row.completed_at
-          : null;
-      const updatedAt = completed ?? created;
-
-      const fromOverall =
-        typeof row.overall_score === "number" && !Number.isNaN(row.overall_score)
-          ? Math.round(row.overall_score * 10) / 10
-          : null;
-      const avgScore = fromOverall ?? averageScoreFromStored(scores);
-
-      return {
-        session_id: row.session_id as string,
-        status: row.status === "completed" ? "completed" : "active",
-        created_at: created,
-        updated_at: updatedAt,
-        jd_preview,
-        question_count: qCount,
-        avg_score: avgScore,
-      };
-    });
-
-    return { data: summaries, error: null };
+    return {
+      data: mapSessionRowsToSummaries((data ?? []) as Record<string, unknown>[]),
+      error: null,
+    };
   } catch (e) {
     const msg =
       e instanceof TypeError && e.message === "Failed to fetch"
@@ -186,7 +194,7 @@ export async function fetchInterviewSessionBySessionId(params: {
     const { data, error } = await supabase
       .from(SESSIONS_TABLE)
       .select(
-        "session_id,user_id,jd_text,extracted_data,questions,question_scores,status,created_at,completed_at,overall_score,grade,hiring_likelihood"
+        "session_id,user_id,jd_text,extracted_data,questions,status,created_at,completed_at,overall_score,grade,hiring_likelihood"
       )
       .eq("session_id", params.sessionId)
       .eq("user_id", params.userId)

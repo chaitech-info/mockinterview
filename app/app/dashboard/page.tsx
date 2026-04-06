@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { track } from "@/lib/firebase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
-import { listInterviewSessionsForUser, type InterviewSessionSummary } from "@/lib/supabase/interview-session";
+import type { InterviewSessionSummary } from "@/lib/supabase/interview-session";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 
 function formatWhen(iso: string) {
@@ -49,15 +49,36 @@ export default function DashboardPage() {
     setErrorMessage(null);
 
     void (async () => {
-      const { data, error } = await listInterviewSessionsForUser(userId);
-      if (cancelled) return;
-      if (error) {
-        setErrorMessage(error.message);
+      try {
+        const res = await fetch("/api/dashboard/sessions", {
+          credentials: "include",
+        });
+        const body = (await res.json().catch(() => null)) as
+          | { sessions?: InterviewSessionSummary[]; error?: string }
+          | null;
+        if (cancelled) return;
+        if (!res.ok) {
+          setErrorMessage(
+            typeof body?.error === "string"
+              ? body.error
+              : `Could not load sessions (HTTP ${res.status}).`
+          );
+          setSessionsListReady(true);
+          return;
+        }
+        setSessions(Array.isArray(body?.sessions) ? body.sessions : []);
         setSessionsListReady(true);
-        return;
+      } catch (e) {
+        if (cancelled) return;
+        setErrorMessage(
+          e instanceof TypeError && e.message === "Failed to fetch"
+            ? "Network error loading the dashboard. Try again or check your connection."
+            : e instanceof Error
+              ? e.message
+              : "Could not load sessions."
+        );
+        setSessionsListReady(true);
       }
-      setSessions(data);
-      setSessionsListReady(true);
     })();
 
     return () => {

@@ -56,7 +56,6 @@ export async function POST(request: Request) {
         jd_text: null,
         extracted_data: (payload.extracted ?? null) as Record<string, unknown> | null,
         questions: fullBank,
-        question_scores: [],
         status: "active",
       },
       { onConflict: "session_id" }
