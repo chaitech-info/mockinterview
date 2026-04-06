@@ -10,6 +10,7 @@ import {
   type PaddleCheckoutEnvironment,
   type PaddleKeyMode,
 } from "@/lib/paddle/checkout";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ export function PricingCard({
   paddlePriceId,
   paddleCheckoutEnvironment,
   paddleKeyMode,
-  /** Passed to Paddle checkout so webhooks can attach `subscription.custom_data` to your Supabase user. */
+  /** Extra keys merged into Paddle `customData`; `supabase_user_id` is always set at click time when signed in. */
   checkoutCustomData,
 }: {
   title: string;
@@ -55,10 +56,30 @@ export function PricingCard({
     if (!paddlePriceId?.trim()) return;
     setCheckoutLoading(true);
     try {
+      const merged: Record<string, unknown> = { ...(checkoutCustomData ?? {}) };
+
+      if (isSupabaseConfigured()) {
+        const supabase = getSupabaseClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user?.id) {
+          merged.supabase_user_id = user.id;
+        } else {
+          window.alert(
+            "Sign in with Google first so we can attach this payment to your account and add interview credits."
+          );
+          void signInWithGoogle(
+            `${window.location.pathname}${window.location.search}${window.location.hash || "#pricing"}`
+          );
+          return;
+        }
+      }
+
       void track("paddle_checkout_open", { priceId: paddlePriceId });
       await openPaddleCheckout(paddlePriceId, paddleCheckoutEnvironment, {
         paddleKeyMode,
-        customData: checkoutCustomData,
+        customData: merged,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Checkout could not start.";

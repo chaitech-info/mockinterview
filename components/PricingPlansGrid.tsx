@@ -36,29 +36,28 @@ export function PricingPlansGrid({
     Record<string, unknown> | undefined
   >();
 
+  /** Keep Paddle `customData.supabase_user_id` in sync whenever auth changes (e.g. sign-in on landing). */
   React.useEffect(() => {
-    if (!signedIn || !isSupabaseConfigured()) {
+    if (!isSupabaseConfigured()) {
       setCheckoutCustomData(undefined);
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const supabase = getSupabaseClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!cancelled && user?.id) {
-          setCheckoutCustomData({ supabase_user_id: user.id });
-        }
-      } catch {
-        if (!cancelled) setCheckoutCustomData(undefined);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [signedIn]);
+    const supabase = getSupabaseClient();
+
+    function syncCustomData() {
+      void supabase.auth.getUser().then(({ data: { user } }) => {
+        setCheckoutCustomData(user?.id ? { supabase_user_id: user.id } : undefined);
+      });
+    }
+
+    syncCustomData();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      syncCustomData();
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
