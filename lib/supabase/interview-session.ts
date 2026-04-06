@@ -16,7 +16,6 @@ export type InterviewSessionRow = {
   jd_text: string | null;
   extracted: Record<string, unknown> | null;
   questions: unknown;
-  playable_question_count?: number | null;
   question_scores: StoredQuestionScore[];
   status: string;
   created_at: string;
@@ -37,10 +36,6 @@ export async function upsertInterviewSessionFromIntake(params: {
         jd_text: params.jdText,
         extracted: (params.intake.extracted ?? null) as Record<string, unknown> | null,
         questions: params.intake.questions,
-        playable_question_count:
-          typeof params.intake.playable_question_count === "number"
-            ? params.intake.playable_question_count
-            : params.intake.questions.length,
         question_scores: [],
         status: "active",
         updated_at: new Date().toISOString(),

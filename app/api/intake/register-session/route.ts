@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { FULL_INTERVIEW_QUESTIONS, LIMITED_INTERVIEW_QUESTIONS } from "@/lib/entitlements/plan";
+import { FULL_INTERVIEW_QUESTIONS } from "@/lib/entitlements/plan";
 import { getEntitlementsForUser } from "@/lib/entitlements/resolve";
 import type { IntakeResponse } from "@/lib/session-store";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -47,7 +47,6 @@ export async function POST(request: Request) {
     const ent = await getEntitlementsForUser(supabase, user.id);
 
     const fullBank = payload.questions.slice(0, FULL_INTERVIEW_QUESTIONS);
-    const playableCount = Math.min(LIMITED_INTERVIEW_QUESTIONS, fullBank.length);
 
     const { error: upsertError } = await supabase.from("interview_sessions").upsert(
       {
@@ -56,7 +55,6 @@ export async function POST(request: Request) {
         jd_text: null,
         extracted: (payload.extracted ?? null) as Record<string, unknown> | null,
         questions: fullBank,
-        playable_question_count: playableCount,
         question_scores: [],
         status: "active",
         updated_at: new Date().toISOString(),
@@ -73,8 +71,7 @@ export async function POST(request: Request) {
       session_id: payload.session_id,
       extracted: payload.extracted,
       questions: fullBank,
-      total_questions: playableCount,
-      playable_question_count: playableCount,
+      total_questions: fullBank.length,
     };
 
     return NextResponse.json({
