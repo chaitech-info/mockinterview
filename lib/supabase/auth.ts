@@ -73,3 +73,24 @@ export function popNextPath(): string | null {
   }
 }
 
+/**
+ * Server-backed check: whether this email already has an account (auth.users).
+ * Returns null if the request failed (network / misconfiguration).
+ */
+export async function checkEmailRegistered(email: string): Promise<boolean | null> {
+  const trimmed = email.trim();
+  if (!trimmed) return null;
+  try {
+    const res = await fetch("/api/auth/email-registered", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: trimmed }),
+    });
+    const json = (await res.json()) as { ok?: boolean; exists?: boolean };
+    if (json.ok && typeof json.exists === "boolean") return json.exists;
+    return null;
+  } catch {
+    return null;
+  }
+}
+

@@ -144,8 +144,8 @@ async function getPaddleForCheckout(env: PaddleCheckoutEnvironment): Promise<Pad
 }
 
 /**
- * Opens Paddle overlay checkout. Pass `customData: { supabase_user_id: "<uuid>" }` so
- * `transaction.*` webhooks can grant credits to the right user (see `extractSupabaseUserId`).
+ * Opens Paddle overlay checkout. Pass `customData: { email: "user@..." }` so
+ * `transaction.*` webhooks can resolve the Supabase user via `user_id_from_email` (legacy: `supabase_user_id`).
  */
 export async function openPaddleCheckout(
   priceId: string,

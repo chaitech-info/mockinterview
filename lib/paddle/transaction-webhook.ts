@@ -1,10 +1,6 @@
 import type { BillingPlan } from "@/lib/entitlements/plan";
 import { creditsForCompletedTransaction } from "@/lib/paddle/credits-from-price";
-import {
-  extractSupabaseUserId,
-  extractFirstPriceId,
-  flattenPaddleTransactionEntity,
-} from "@/lib/paddle/subscription-webhook";
+import { extractFirstPriceId, flattenPaddleTransactionEntity } from "@/lib/paddle/subscription-webhook";
 
 /** Stable id for idempotency (prefer transaction id). */
 export function extractTransactionDedupeId(data: Record<string, unknown>): string | null {
@@ -25,12 +21,16 @@ export type TransactionCreditsResult =
 
 /**
  * Parses Paddle transaction webhooks (`transaction.paid`, `transaction.completed`) for credit grants.
+ * @param resolvedUserId From {@link resolvePaddleUserId} (email or legacy UUID in custom_data).
  */
-export function resolveCreditsFromTransaction(data: Record<string, unknown>): TransactionCreditsResult {
+export function resolveCreditsFromTransaction(
+  data: Record<string, unknown>,
+  resolvedUserId: string | null
+): TransactionCreditsResult {
   const flat = flattenPaddleTransactionEntity(data);
-  const userId = extractSupabaseUserId(flat);
+  const userId = resolvedUserId?.trim() || null;
   if (!userId) {
-    return { ok: false, reason: "no_supabase_user_id" };
+    return { ok: false, reason: "no_user_identifier" };
   }
   const priceId = extractFirstPriceId(flat);
   const origin = typeof flat.origin === "string" ? flat.origin : null;

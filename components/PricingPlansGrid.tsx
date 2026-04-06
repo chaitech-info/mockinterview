@@ -46,7 +46,7 @@ export function PricingPlansGrid({
 
     function syncCustomData() {
       void supabase.auth.getUser().then(({ data: { user } }) => {
-        setCheckoutCustomData(user?.id ? { supabase_user_id: user.id } : undefined);
+        setCheckoutCustomData(user?.email ? { email: user.email } : undefined);
       });
     }
 

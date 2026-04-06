@@ -28,7 +28,7 @@ export function PricingCard({
   paddlePriceId,
   paddleCheckoutEnvironment,
   paddleKeyMode,
-  /** Extra keys merged into Paddle `customData`; `supabase_user_id` is always set at click time when signed in. */
+  /** Extra keys merged into Paddle `customData`; `email` is set at click time when signed in. */
   checkoutCustomData,
 }: {
   title: string;
@@ -63,11 +63,11 @@ export function PricingCard({
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (user?.id) {
-          merged.supabase_user_id = user.id;
+        if (user?.email) {
+          merged.email = user.email;
         } else {
           window.alert(
-            "Sign in with Google first so we can attach this payment to your account and add interview credits."
+            "Sign in with Google first so we can attach this payment to your account (we send your email to Paddle)."
           );
           void signInWithGoogle(
             `${window.location.pathname}${window.location.search}${window.location.hash || "#pricing"}`

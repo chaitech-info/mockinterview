@@ -26,6 +26,19 @@ export function extractSupabaseUserId(data: Record<string, unknown>): string | n
   return null;
 }
 
+/** Purchaser email from checkout customData (shown in Paddle; resolved to user id server-side). */
+export function extractPurchaseEmail(data: Record<string, unknown>): string | null {
+  const flat = flattenPaddleTransactionEntity(data);
+  const raw = flat.custom_data;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const v = o.email ?? o.user_email ?? o.userEmail;
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 function priceIdFromLineItem(row: Record<string, unknown>): string | null {
   const price = row.price;
   if (typeof price === "string" && price.startsWith("pri_")) return price;

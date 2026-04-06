@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 
 import {
   extractFirstPriceId,
-  extractSupabaseUserId,
   flattenPaddleTransactionEntity,
   resolvePlanFromSubscription,
 } from "@/lib/paddle/subscription-webhook";
+import { resolvePaddleUserId } from "@/lib/paddle/resolve-paddle-user";
 import {
   extractTransactionDedupeId,
   resolveCreditsFromTransaction,
 } from "@/lib/paddle/transaction-webhook";
 import { verifyPaddleWebhookSignature } from "@/lib/paddle/webhook-verify";
+import { sendPurchaseConfirmationEmail } from "@/lib/email/send-purchase-confirmation";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -83,7 +84,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: dedupeErr.message }, { status: 500 });
     }
 
-    const resolved = resolveCreditsFromTransaction(payload);
+    const resolvedUserId = await resolvePaddleUserId(supabase, payload);
+    const resolved = resolveCreditsFromTransaction(payload, resolvedUserId);
     if (!resolved.ok) {
       console.warn("[Paddle webhook] Transaction credits skipped", {
         reason: resolved.reason,
@@ -109,6 +111,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: grantErr.message }, { status: 500 });
     }
 
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("interview_credits, email")
+      .eq("id", resolved.userId)
+      .maybeSingle();
+
+    const { data: authUserData } = await supabase.auth.admin.getUserById(resolved.userId);
+    const toEmail = authUserData.user?.email ?? prof?.email ?? null;
+    const newBalance =
+      typeof prof?.interview_credits === "number" ? prof.interview_credits : resolved.credits;
+    if (toEmail) {
+      void sendPurchaseConfirmationEmail({
+        to: toEmail,
+        creditsAdded: resolved.credits,
+        newBalance,
+      }).catch((e) => console.error("[Paddle webhook] purchase email failed", e));
+    }
+
     return NextResponse.json({
       ok: true,
       kind: "transaction",
@@ -122,15 +142,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true, event_type: eventType });
   }
 
-  const userId = extractSupabaseUserId(payload);
+  const userId = await resolvePaddleUserId(supabase, payload);
   if (!userId) {
     console.warn(
-      "[Paddle webhook] Missing custom_data.supabase_user_id — ensure checkout passes customData (user signed in)."
+      "[Paddle webhook] Could not resolve user — pass customData.email (or legacy supabase_user_id) from checkout."
     );
     return NextResponse.json({
       ok: true,
       skipped: true,
-      reason: "no_supabase_user_id",
+      reason: "no_user_identifier",
     });
   }
 
