@@ -42,16 +42,13 @@ export function AuthButton() {
     }
 
     supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        const user = data.session?.user ?? null;
+      .getUser()
+      .then(({ data: { user } }) => {
         const profile = user ? getUserProfile(user) : null;
         setState(
-          data.session && profile
-            ? { status: "signed_in", ...profile }
-            : { status: "signed_out" }
+          user && profile ? { status: "signed_in", ...profile } : { status: "signed_out" }
         );
-        if (data.session && user && profile) {
+        if (user && profile) {
           saveUser({
             id: user.id,
             email: profile.email,

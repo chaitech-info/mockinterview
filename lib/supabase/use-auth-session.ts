@@ -27,12 +27,13 @@ export function useAuthSession(): AuthSessionStatus {
       return;
     }
 
+    // Prefer getUser() for the first paint after OAuth — it validates the JWT and
+    // can reflect sign-in more reliably than getSession() alone in some redirects.
     supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        const user = data.session?.user ?? null;
+      .getUser()
+      .then(({ data: { user } }) => {
         const profile = user ? getUserProfile(user) : null;
-        setStatus(data.session && profile ? "signed_in" : "signed_out");
+        setStatus(user && profile ? "signed_in" : "signed_out");
       })
       .catch(() => setStatus("signed_out"));
 

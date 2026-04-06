@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   ArrowRight,
   BrainCircuit,
@@ -90,20 +91,25 @@ export default function Home() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-background/70 backdrop-blur">
         <Container>
-          <div className="flex h-16 items-center justify-between">
-            <a href="/" className="flex items-center gap-2">
+          <div className="flex min-h-14 flex-col gap-3 py-3 sm:h-16 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-0">
+            <a href="/" className="flex min-w-0 shrink-0 items-center gap-2">
               <Image
                 src="/logo.jpeg"
                 alt=""
                 width={200}
                 height={40}
-                className="h-9 w-auto max-w-[200px] object-contain object-left"
+                className="h-9 w-auto max-w-[160px] object-contain object-left sm:max-w-[200px]"
                 priority
               />
-              <div className="text-sm font-semibold tracking-tight">Mock Interview</div>
+              <div className="hidden text-sm font-semibold tracking-tight sm:block">
+                Mock Interview
+              </div>
             </a>
-            <div className="flex items-center gap-2">
-              <Button asChild variant="ghost">
+            <nav
+              className="flex w-full min-w-0 flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end"
+              aria-label="Primary"
+            >
+              <Button asChild variant="ghost" size="sm" className="shrink-0">
                 <a
                   href="#pricing"
                   onClick={() => void track("landing_click_pricing")}
@@ -111,9 +117,16 @@ export default function Home() {
                   Pricing
                 </a>
               </Button>
+              <Button asChild variant="outline" size="sm" className="shrink-0 font-semibold">
+                <Link href="/app/dashboard" onClick={() => void track("landing_click_dashboard")}>
+                  Dashboard
+                </Link>
+              </Button>
               {authSession !== "signed_in" ? (
                 <Button
                   type="button"
+                  size="sm"
+                  className="shrink-0"
                   onClick={() => {
                     void track("landing_click_try_free");
                     void signInWithGoogle("/app/intake");
@@ -122,8 +135,10 @@ export default function Home() {
                   Try free
                 </Button>
               ) : null}
-              <AuthButton />
-            </div>
+              <div className="shrink-0">
+                <AuthButton />
+              </div>
+            </nav>
           </div>
         </Container>
       </header>
