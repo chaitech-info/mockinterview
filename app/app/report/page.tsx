@@ -29,8 +29,9 @@ import { loadReportSnapshot } from "@/lib/report-snapshot";
 import type { ApiQuestion } from "@/lib/session-store";
 import { loadActiveSession } from "@/lib/session-store";
 import { fetchInterviewSessionBySessionId } from "@/lib/supabase/interview-session";
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { cn } from "@/lib/utils";
 
 const METRIC_ORDER: QuestionCategory[] = [
@@ -78,6 +79,8 @@ function viewModelFromSnapshot(snapshot: ReportSnapshot): ReportViewModel {
 
 function ReportPageInner() {
   const searchParams = useSearchParams();
+  const auth = useAuthSession();
+  const authUserId = auth.status === "signed_in" ? auth.user.id : null;
   const [fallbackSessionId, setFallbackSessionId] = React.useState<string | null>(null);
   const [storageHydrated, setStorageHydrated] = React.useState(false);
 
@@ -135,6 +138,20 @@ function ReportPageInner() {
         return;
       }
 
+      if (auth.status === "loading") {
+        if (!cancelled) setPhase("loading");
+        return;
+      }
+
+      if (auth.status === "signed_out" || auth.status === "unconfigured") {
+        if (!cancelled) setPhase("sign_in");
+        return;
+      }
+
+      if (auth.status !== "signed_in" || !authUserId) {
+        return;
+      }
+
       if (!cancelled) {
         setUseMock(false);
         setFromSnapshot(false);
@@ -143,17 +160,8 @@ function ReportPageInner() {
       }
 
       try {
-        const supabase = getSupabaseClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          if (!cancelled) setPhase("sign_in");
-          return;
-        }
-
         const { data, error } = await fetchInterviewSessionBySessionId({
-          userId: user.id,
+          userId: authUserId,
           sessionId,
         });
         if (cancelled) return;
@@ -193,7 +201,7 @@ function ReportPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, storageHydrated]);
+  }, [sessionId, storageHydrated, auth.status, authUserId]);
 
   function handleDownloadPdf() {
     setDownloading(true);
