@@ -82,8 +82,12 @@ export default function InterviewPage() {
   const auth = useAuthSession();
   const [sessionReady, setSessionReady] = React.useState(false);
   const [sessionId, setSessionId] = React.useState<string | null>(null);
-  const [sessionQuestions, setSessionQuestions] = React.useState<UiQuestion[]>([]);
-  const questions = sessionQuestions;
+  const [bankQuestions, setBankQuestions] = React.useState<UiQuestion[]>([]);
+  const [playableCount, setPlayableCount] = React.useState(0);
+  const questions = React.useMemo(
+    () => bankQuestions.slice(0, playableCount),
+    [bankQuestions, playableCount]
+  );
   const total = questions.length;
   const [currentIdx, setCurrentIdx] = React.useState(0);
   const [phase, setPhase] = React.useState<Phase>("idle");
@@ -95,7 +99,6 @@ export default function InterviewPage() {
   const [feedbackPayload, setFeedbackPayload] = React.useState<AnswerWebhookResponse | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [micError, setMicError] = React.useState<string | null>(null);
-  const [billingPlan, setBillingPlan] = React.useState<"free" | "plan_3" | "plan_5" | null>(null);
   const [showFreeTierUpsell, setShowFreeTierUpsell] = React.useState(false);
 
   const streamRef = React.useRef<MediaStream | null>(null);
@@ -134,29 +137,15 @@ export default function InterviewPage() {
       if (stored?.session_id) setSessionId(stored.session_id);
 
       if (stored?.questions?.length) {
-        let raw = stored.questions;
-        try {
-          const r = await fetch("/api/entitlements", { cache: "no-store" });
-          const data = (await r.json()) as {
-            ok?: boolean;
-            plan?: "free" | "plan_3" | "plan_5";
-            maxQuestionsPerInterview?: number | null;
-          };
-          if (!cancelled && data.ok && data.plan) {
-            setBillingPlan(data.plan);
-          }
-          if (
-            !cancelled &&
-            data.ok &&
-            data.maxQuestionsPerInterview != null &&
-            typeof data.maxQuestionsPerInterview === "number"
-          ) {
-            raw = raw.slice(0, data.maxQuestionsPerInterview);
-          }
-        } catch {
-          // If entitlements fail, use stored questions (intake already enforced for new sessions).
+        const raw = stored.questions;
+        const playable =
+          typeof stored.playable_question_count === "number"
+            ? stored.playable_question_count
+            : raw.length;
+        if (!cancelled) {
+          setBankQuestions(mapApiToUiQuestions(raw));
+          setPlayableCount(Math.min(playable, raw.length));
         }
-        if (!cancelled) setSessionQuestions(mapApiToUiQuestions(raw));
       }
       if (!cancelled) setSessionReady(true);
     })();
@@ -336,7 +325,7 @@ export default function InterviewPage() {
         );
       }
       void track("interview_finish_session");
-      if (billingPlan === "free") {
+      if (playableCount < bankQuestions.length) {
         void track("interview_free_tier_upsell_shown");
         setShowFreeTierUpsell(true);
         return;
@@ -585,9 +574,11 @@ export default function InterviewPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {questions.map((q) => {
+                {bankQuestions.map((q) => {
+                  const beyondPlayable = q.order > playableCount;
                   const scored = answeredSoFar.find((r) => r.id === q.id);
-                  const isUpcoming = !scored && q.id !== question.id;
+                  const isUpcoming =
+                    !beyondPlayable && !scored && question && q.id !== question.id;
 
                   return (
                     <div
@@ -598,7 +589,12 @@ export default function InterviewPage() {
                         <div className="text-sm font-medium">Q{q.order}</div>
                         <div className="truncate text-xs text-muted-foreground">{q.category}</div>
                       </div>
-                      {scored ? (
+                      {beyondPlayable ? (
+                        <Badge className="bg-muted text-muted-foreground hover:bg-muted">
+                          <Lock className="h-3.5 w-3.5" />
+                          Locked
+                        </Badge>
+                      ) : scored ? (
                         <Badge className={scoreTone(scored.score)}>{scored.score.toFixed(0)}/10</Badge>
                       ) : isUpcoming ? (
                         <Badge className="bg-muted text-muted-foreground hover:bg-muted">

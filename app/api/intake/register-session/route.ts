@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
+import {
+  FULL_INTERVIEW_QUESTIONS,
+  playableQuestionCapFromCreditsBeforeConsume,
+} from "@/lib/entitlements/plan";
 import { getEntitlementsForUser } from "@/lib/entitlements/resolve";
-import { maxQuestionsForPlan } from "@/lib/entitlements/plan";
 import type { IntakeResponse } from "@/lib/session-store";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -82,9 +85,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const cap = maxQuestionsForPlan(ent.plan);
-    const questions =
-      cap === null ? payload.questions : payload.questions.slice(0, cap);
+    const creditsBeforeConsume = ent.interviewCredits;
+    const cap = playableQuestionCapFromCreditsBeforeConsume(creditsBeforeConsume);
+    const fullBank = payload.questions.slice(0, FULL_INTERVIEW_QUESTIONS);
+    const playableCount = Math.min(cap, fullBank.length);
 
     const { error: upsertError } = await supabase.from("interview_sessions").upsert(
       {
@@ -92,7 +96,8 @@ export async function POST(request: Request) {
         user_id: user.id,
         jd_text: null,
         extracted: (payload.extracted ?? null) as Record<string, unknown> | null,
-        questions,
+        questions: fullBank,
+        playable_question_count: playableCount,
         question_scores: [],
         status: "active",
         updated_at: new Date().toISOString(),
@@ -124,8 +129,9 @@ export async function POST(request: Request) {
       success: true,
       session_id: payload.session_id,
       extracted: payload.extracted,
-      questions,
-      total_questions: questions.length,
+      questions: fullBank,
+      total_questions: playableCount,
+      playable_question_count: playableCount,
     };
 
     return NextResponse.json({

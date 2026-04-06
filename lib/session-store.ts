@@ -14,6 +14,8 @@ export type IntakeResponse = {
   extracted?: Record<string, unknown>;
   questions: ApiQuestion[];
   total_questions: number;
+  /** Leading questions the user may answer; remaining entries in `questions` are shown locked. */
+  playable_question_count?: number;
 };
 
 const KEY = "prepai_active_session_v1";

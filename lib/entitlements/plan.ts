@@ -1,7 +1,13 @@
 export type BillingPlan = "free" | "plan_3" | "plan_5";
 
-/** Free: 1 mock interview / month, first 3 questions only. */
-export const FREE_MAX_QUESTIONS = 3;
+/** Free / last-credit session: only the first three questions are playable. */
+export const LIMITED_INTERVIEW_QUESTIONS = 3;
+
+/** Full mock interview when the user still has credits after starting this session. */
+export const FULL_INTERVIEW_QUESTIONS = 12;
+
+/** @deprecated Use LIMITED_INTERVIEW_QUESTIONS */
+export const FREE_MAX_QUESTIONS = LIMITED_INTERVIEW_QUESTIONS;
 
 /** Max completed intakes (mock interviews) per UTC calendar month. */
 export function interviewsAllowedPerMonth(plan: BillingPlan): number {
@@ -17,9 +23,18 @@ export function interviewsAllowedPerMonth(plan: BillingPlan): number {
   }
 }
 
-/** null = full question bank for that session (no cap). */
+/**
+ * Remaining credits after starting a session: if 0, only {@link LIMITED_INTERVIEW_QUESTIONS}
+ * are playable; if positive, up to {@link FULL_INTERVIEW_QUESTIONS}.
+ */
+export function playableQuestionCapFromCreditsBeforeConsume(creditsBeforeConsume: number): number {
+  if (creditsBeforeConsume <= 1) return LIMITED_INTERVIEW_QUESTIONS;
+  return FULL_INTERVIEW_QUESTIONS;
+}
+
+/** Legacy: plan-based cap; prefer credit-based caps in register-session. */
 export function maxQuestionsForPlan(plan: BillingPlan): number | null {
-  if (plan === "free") return FREE_MAX_QUESTIONS;
+  if (plan === "free") return LIMITED_INTERVIEW_QUESTIONS;
   return null;
 }
 
