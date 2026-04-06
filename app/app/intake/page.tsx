@@ -10,8 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { track } from "@/lib/firebase/client";
 import { getIntakeWebhookUrl } from "@/lib/n8n-webhooks";
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getCurrentUser } from "@/lib/supabase/get-current-user";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import type { IntakeResponse } from "@/lib/session-store";
 import { clearActiveSession, saveActiveSession } from "@/lib/session-store";
 import { upsertInterviewSessionFromIntake } from "@/lib/supabase/interview-session";
@@ -21,6 +23,7 @@ const MIN_JD_CHAR_COUNT = 50;
 type Phase = "input" | "analyzing" | "results" | "error";
 
 export default function IntakePage() {
+  const auth = useAuthSession();
   const [phase, setPhase] = React.useState<Phase>("input");
 
   const [jdText, setJdText] = React.useState("");
@@ -34,15 +37,12 @@ export default function IntakePage() {
   const timeouts = React.useRef<number[]>([]);
 
   React.useEffect(() => {
+    if (auth.status !== "signed_in") return;
+
     let cancelled = false;
     void (async () => {
       if (!isSupabaseConfigured()) return;
       try {
-        const supabase = getSupabaseClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user || cancelled) return;
         const r = await fetch("/api/entitlements", { cache: "no-store" });
         const data = (await r.json()) as { ok?: boolean; interviewCredits?: number };
         if (!cancelled && data.ok && typeof data.interviewCredits === "number") {
@@ -55,7 +55,7 @@ export default function IntakePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [auth]);
 
   React.useEffect(() => {
     return () => {
@@ -90,16 +90,14 @@ export default function IntakePage() {
       window.setTimeout(() => setLoadingText("Generating your question bank..."), 2000)
     );
 
-    let supabase;
+    let user;
     try {
-      supabase = getSupabaseClient();
+      user = await getCurrentUser();
     } catch {
       setError("Sign-in is not configured on this deployment (Supabase env missing).");
       setPhase("error");
       return;
     }
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
     if (!user) {
       void track("intake_requires_login");
       await signInWithGoogle("/app/intake");

@@ -22,8 +22,9 @@ import {
   updateInterviewSessionScores,
   type StoredQuestionScore,
 } from "@/lib/supabase/interview-session";
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getCurrentUser } from "@/lib/supabase/get-current-user";
 import { signInWithGoogle } from "@/lib/supabase/auth";
+import { useAuthSession } from "@/lib/supabase/use-auth-session";
 
 type Phase = "idle" | "recording" | "thinking" | "feedback";
 
@@ -78,7 +79,7 @@ function scoreTone(score: number) {
 }
 
 export default function InterviewPage() {
-  const [requiresLogin, setRequiresLogin] = React.useState(false);
+  const auth = useAuthSession();
   const [sessionReady, setSessionReady] = React.useState(false);
   const [sessionId, setSessionId] = React.useState<string | null>(null);
   const [sessionQuestions, setSessionQuestions] = React.useState<UiQuestion[]>([]);
@@ -107,10 +108,7 @@ export default function InterviewPage() {
     void (async () => {
       if (sid) {
         try {
-          const sb = getSupabaseClient();
-          const {
-            data: { user },
-          } = await sb.auth.getUser();
+          const user = await getCurrentUser();
           if (user?.id) {
             const { error } = await updateInterviewSessionScores({
               userId: user.id,
@@ -130,19 +128,6 @@ export default function InterviewPage() {
 
   React.useEffect(() => {
     let cancelled = false;
-
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient();
-        supabase.auth.getSession().then(({ data }) => {
-          if (!cancelled && !data.session) setRequiresLogin(true);
-        });
-      } catch {
-        if (!cancelled) setRequiresLogin(true);
-      }
-    } else {
-      setRequiresLogin(true);
-    }
 
     void (async () => {
       const stored = loadActiveSession();
@@ -281,19 +266,15 @@ export default function InterviewPage() {
       return;
     }
 
-    let supabase;
+    let user;
     try {
-      supabase = getSupabaseClient();
+      user = await getCurrentUser();
     } catch {
       setSubmitError("Sign-in is not available (check Supabase env on this deployment).");
       setPhase("idle");
       return;
     }
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
-    if (userErr || !user) {
+    if (!user) {
       setSubmitError("You must be signed in to submit an answer.");
       setPhase("idle");
       return;
@@ -368,7 +349,7 @@ export default function InterviewPage() {
     setPhase("idle");
   }
 
-  if (!sessionReady) {
+  if (!sessionReady || auth.status === "loading") {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
@@ -382,7 +363,7 @@ export default function InterviewPage() {
     );
   }
 
-  if (requiresLogin) {
+  if (auth.status === "signed_out" || auth.status === "unconfigured") {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
