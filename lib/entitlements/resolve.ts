@@ -11,6 +11,8 @@ export type EntitlementsPayload = {
   interviewCredits: number;
   canStartNewInterview: boolean;
   maxQuestionsPerInterview: number | null;
+  /** True after at least one purchase; unlocks full question bank in the mock interview. */
+  hasPurchased: boolean;
   /** @deprecated Monthly limits replaced by interview credits; kept 0 for API compatibility. */
   interviewsUsedThisMonth: number;
   /** @deprecated Monthly limits replaced by interview credits; kept 0 for API compatibility. */
@@ -30,7 +32,7 @@ export async function getEntitlementsForUser(
 
   const { data: profileRow, error: profileError } = await supabase
     .from("profiles")
-    .select("interview_credits")
+    .select("interview_credits, has_purchased")
     .eq("id", userId)
     .maybeSingle();
 
@@ -57,6 +59,7 @@ export async function getEntitlementsForUser(
     interviewCredits: credits,
     canStartNewInterview: credits > 0,
     maxQuestionsPerInterview: maxQuestionsForPlan(plan),
+    hasPurchased: profileRow?.has_purchased === true,
     interviewsUsedThisMonth: 0,
     interviewsAllowedThisMonth: 0,
   };

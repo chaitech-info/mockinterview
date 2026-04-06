@@ -111,6 +111,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: grantErr.message }, { status: 500 });
     }
 
+    const { error: purchasedErr } = await supabase
+      .from("profiles")
+      .update({ has_purchased: true, updated_at: new Date().toISOString() })
+      .eq("id", resolved.userId);
+    if (purchasedErr) {
+      console.warn("[Paddle webhook] has_purchased update failed", purchasedErr);
+    }
+
     const { data: prof } = await supabase
       .from("profiles")
       .select("interview_credits, email")
@@ -182,6 +190,16 @@ export async function POST(request: Request) {
   if (error) {
     console.error("[Paddle webhook] user_entitlements upsert failed", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
+  if (resolved.plan !== "free") {
+    const { error: subPurchasedErr } = await supabase
+      .from("profiles")
+      .update({ has_purchased: true, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+    if (subPurchasedErr) {
+      console.warn("[Paddle webhook] has_purchased update (subscription) failed", subPurchasedErr);
+    }
   }
 
   return NextResponse.json({

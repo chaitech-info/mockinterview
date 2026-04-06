@@ -102,6 +102,51 @@ export default function InterviewPage() {
   const [micError, setMicError] = React.useState<string | null>(null);
   const [showFreeTierUpsell, setShowFreeTierUpsell] = React.useState(false);
 
+  const applyPurchasedUnlock = React.useCallback(
+    (fromUpsell: boolean) => {
+      setPlayableCount(bankQuestions.length);
+      setShowFreeTierUpsell(false);
+      if (fromUpsell) setCurrentIdx((i) => i + 1);
+    },
+    [bankQuestions.length]
+  );
+
+  React.useEffect(() => {
+    if (auth.status !== "signed_in" || bankQuestions.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await fetch("/api/entitlements", { credentials: "include" });
+        const data = (await r.json()) as { ok?: boolean; hasPurchased?: boolean };
+        if (cancelled || !data.ok || !data.hasPurchased) return;
+        applyPurchasedUnlock(false);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.status, bankQuestions.length, applyPurchasedUnlock]);
+
+  React.useEffect(() => {
+    if (!showFreeTierUpsell || auth.status !== "signed_in" || bankQuestions.length === 0) return;
+    function onFocus() {
+      void (async () => {
+        try {
+          const r = await fetch("/api/entitlements", { credentials: "include" });
+          const data = (await r.json()) as { ok?: boolean; hasPurchased?: boolean };
+          if (!data.ok || !data.hasPurchased) return;
+          applyPurchasedUnlock(true);
+        } catch {
+          // ignore
+        }
+      })();
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [showFreeTierUpsell, auth.status, bankQuestions.length, applyPurchasedUnlock]);
+
   const streamRef = React.useRef<MediaStream | null>(null);
   const recorderRef = React.useRef<MediaRecorder | null>(null);
   const chunksRef = React.useRef<Blob[]>([]);
