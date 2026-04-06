@@ -67,6 +67,7 @@ export async function updateInterviewSessionScores(params: {
     const avg = averageScoreFromStored(params.questionScores);
     const patch: Record<string, unknown> = {
       status: params.status ?? "active",
+      question_scores: params.questionScores,
     };
     if (avg != null) {
       patch.overall_score = avg;
@@ -110,6 +111,44 @@ function averageScoreFromStored(scores: StoredQuestionScore[]): number | null {
 /** Columns on `public.sessions` used for the dashboard list (matches live DB without `question_scores`). */
 export const SESSIONS_LIST_SELECT =
   "session_id,status,created_at,completed_at,jd_text,questions,overall_score" as const;
+
+/** Full row fields needed to build the post-interview report. */
+export const SESSION_REPORT_SELECT =
+  "session_id,user_id,jd_text,extracted_data,questions,question_scores,status,created_at,completed_at,overall_score,grade,hiring_likelihood" as const;
+
+export function mapSessionRecordToInterviewRow(raw: Record<string, unknown>): InterviewSessionRow {
+  const extractedRaw = raw.extracted_data ?? raw.extracted;
+  const extracted =
+    extractedRaw !== null &&
+    typeof extractedRaw === "object" &&
+    !Array.isArray(extractedRaw)
+      ? (extractedRaw as Record<string, unknown>)
+      : null;
+
+  const qs = raw.question_scores;
+  const question_scores: StoredQuestionScore[] = Array.isArray(qs) ? (qs as StoredQuestionScore[]) : [];
+
+  const created_at = String(raw.created_at ?? "");
+  const completed_at = typeof raw.completed_at === "string" ? raw.completed_at : null;
+  const updated_at = completed_at ?? created_at;
+
+  return {
+    session_id: String(raw.session_id ?? ""),
+    user_id: String(raw.user_id ?? ""),
+    jd_text: typeof raw.jd_text === "string" ? raw.jd_text : null,
+    extracted,
+    questions: raw.questions,
+    question_scores,
+    status: String(raw.status ?? ""),
+    created_at,
+    updated_at,
+    completed_at,
+    overall_score: typeof raw.overall_score === "number" ? raw.overall_score : null,
+    grade: typeof raw.grade === "string" ? raw.grade : null,
+    hiring_likelihood:
+      typeof raw.hiring_likelihood === "string" ? raw.hiring_likelihood : null,
+  };
+}
 
 /**
  * Maps PostgREST rows to dashboard summaries (shared by API route and optional client helpers).
@@ -193,49 +232,14 @@ export async function fetchInterviewSessionBySessionId(params: {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(SESSIONS_TABLE)
-      .select(
-        "session_id,user_id,jd_text,extracted_data,questions,status,created_at,completed_at,overall_score,grade,hiring_likelihood"
-      )
+      .select(SESSION_REPORT_SELECT)
       .eq("session_id", params.sessionId)
       .eq("user_id", params.userId)
       .maybeSingle();
     if (error) return { data: null, error: new Error(error.message) };
     if (!data) return { data: null, error: null };
 
-    const raw = data as Record<string, unknown>;
-    const extractedRaw = raw.extracted_data ?? raw.extracted;
-    const extracted =
-      extractedRaw !== null &&
-      typeof extractedRaw === "object" &&
-      !Array.isArray(extractedRaw)
-        ? (extractedRaw as Record<string, unknown>)
-        : null;
-
-    const qs = raw.question_scores;
-    const question_scores: StoredQuestionScore[] = Array.isArray(qs) ? (qs as StoredQuestionScore[]) : [];
-
-    const created_at = String(raw.created_at ?? "");
-    const completed_at =
-      typeof raw.completed_at === "string" ? raw.completed_at : null;
-    const updated_at = completed_at ?? created_at;
-
-    const row: InterviewSessionRow = {
-      session_id: String(raw.session_id ?? ""),
-      user_id: String(raw.user_id ?? ""),
-      jd_text: typeof raw.jd_text === "string" ? raw.jd_text : null,
-      extracted,
-      questions: raw.questions,
-      question_scores,
-      status: String(raw.status ?? ""),
-      created_at,
-      updated_at,
-      completed_at,
-      overall_score: typeof raw.overall_score === "number" ? raw.overall_score : null,
-      grade: typeof raw.grade === "string" ? raw.grade : null,
-      hiring_likelihood:
-        typeof raw.hiring_likelihood === "string" ? raw.hiring_likelihood : null,
-    };
-
+    const row = mapSessionRecordToInterviewRow(data as Record<string, unknown>);
     return { data: row, error: null };
   } catch (e) {
     const msg =

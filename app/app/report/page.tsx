@@ -28,7 +28,7 @@ import type { ReportSnapshot } from "@/lib/report-snapshot";
 import { loadReportSnapshot } from "@/lib/report-snapshot";
 import type { ApiQuestion } from "@/lib/session-store";
 import { loadActiveSession } from "@/lib/session-store";
-import { fetchInterviewSessionBySessionId } from "@/lib/supabase/interview-session";
+import type { InterviewSessionRow } from "@/lib/supabase/interview-session";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
@@ -160,17 +160,26 @@ function ReportPageInner() {
       }
 
       try {
-        const { data, error } = await fetchInterviewSessionBySessionId({
-          userId: authUserId,
-          sessionId,
-        });
+        const res = await fetch(
+          `/api/interview-session?session_id=${encodeURIComponent(sessionId)}`,
+          { credentials: "include" }
+        );
+        const body = (await res.json().catch(() => null)) as
+          | { session?: InterviewSessionRow | null; error?: string }
+          | null;
         if (cancelled) return;
 
-        if (error) {
-          setErrorMessage(error.message);
+        if (!res.ok) {
+          setErrorMessage(
+            typeof body?.error === "string"
+              ? body.error
+              : `Could not load session (HTTP ${res.status}).`
+          );
           setPhase("error");
           return;
         }
+
+        const data = body?.session ?? null;
         if (!data) {
           setErrorMessage("No saved session found for this id.");
           setPhase("error");
