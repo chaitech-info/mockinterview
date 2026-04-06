@@ -1,5 +1,9 @@
 import type { IntakeResponse } from "@/lib/session-store";
+import { letterGrade } from "@/lib/report-build";
 import { getSupabaseClient } from "@/lib/supabase/client";
+
+/** Live Supabase schema uses `public.sessions` (see project migrations vs. hosted DB). */
+const SESSIONS_TABLE = "sessions" as const;
 
 export type StoredQuestionScore = {
   id: number;
@@ -19,7 +23,12 @@ export type InterviewSessionRow = {
   question_scores: StoredQuestionScore[];
   status: string;
   created_at: string;
+  /** Derived for UI: `completed_at` when set, else `created_at` */
   updated_at: string;
+  completed_at?: string | null;
+  overall_score?: number | null;
+  grade?: string | null;
+  hiring_likelihood?: string | null;
 };
 
 export async function upsertInterviewSessionFromIntake(params: {
@@ -29,16 +38,15 @@ export async function upsertInterviewSessionFromIntake(params: {
 }): Promise<{ error: Error | null }> {
   try {
     const supabase = getSupabaseClient();
-    const { error } = await supabase.from("interview_sessions").upsert(
+    const { error } = await supabase.from(SESSIONS_TABLE).upsert(
       {
         session_id: params.intake.session_id,
         user_id: params.userId,
         jd_text: params.jdText,
-        extracted: (params.intake.extracted ?? null) as Record<string, unknown> | null,
+        extracted_data: (params.intake.extracted ?? null) as Record<string, unknown> | null,
         questions: params.intake.questions,
         question_scores: [],
         status: "active",
-        updated_at: new Date().toISOString(),
       },
       { onConflict: "session_id" }
     );
@@ -57,13 +65,22 @@ export async function updateInterviewSessionScores(params: {
 }): Promise<{ error: Error | null }> {
   try {
     const supabase = getSupabaseClient();
+    const avg = averageScoreFromStored(params.questionScores);
+    const patch: Record<string, unknown> = {
+      question_scores: params.questionScores,
+      status: params.status ?? "active",
+    };
+    if (avg != null) {
+      patch.overall_score = avg;
+      patch.grade = letterGrade(avg);
+    }
+    if (params.status === "completed") {
+      patch.completed_at = new Date().toISOString();
+    }
+
     const { error } = await supabase
-      .from("interview_sessions")
-      .update({
-        question_scores: params.questionScores,
-        status: params.status ?? "active",
-        updated_at: new Date().toISOString(),
-      })
+      .from(SESSIONS_TABLE)
+      .update(patch)
       .eq("session_id", params.sessionId)
       .eq("user_id", params.userId);
     if (error) return { error: new Error(error.message) };
@@ -93,7 +110,7 @@ function averageScoreFromStored(scores: StoredQuestionScore[]): number | null {
 }
 
 /**
- * Lists the signed-in user's sessions, newest first (by `updated_at`).
+ * Lists the signed-in user's sessions, newest first (by `created_at`).
  */
 export async function listInterviewSessionsForUser(userId: string): Promise<{
   data: InterviewSessionSummary[];
@@ -102,12 +119,12 @@ export async function listInterviewSessionsForUser(userId: string): Promise<{
   try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from("interview_sessions")
+      .from(SESSIONS_TABLE)
       .select(
-        "session_id,status,created_at,updated_at,jd_text,questions,question_scores"
+        "session_id,status,created_at,completed_at,jd_text,questions,question_scores,overall_score"
       )
       .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) return { data: [], error: new Error(error.message) };
     if (!data?.length) return { data: [], error: null };
@@ -121,22 +138,41 @@ export async function listInterviewSessionsForUser(userId: string): Promise<{
       const jd_preview =
         jd.length > 90 ? `${jd.slice(0, 90).trim()}…` : jd || null;
 
+      const created = row.created_at as string;
+      const completed =
+        typeof row.completed_at === "string" && row.completed_at
+          ? row.completed_at
+          : null;
+      const updatedAt = completed ?? created;
+
+      const fromOverall =
+        typeof row.overall_score === "number" && !Number.isNaN(row.overall_score)
+          ? Math.round(row.overall_score * 10) / 10
+          : null;
+      const avgScore = fromOverall ?? averageScoreFromStored(scores);
+
       return {
         session_id: row.session_id as string,
         status: row.status === "completed" ? "completed" : "active",
-        created_at: row.created_at as string,
-        updated_at: row.updated_at as string,
+        created_at: created,
+        updated_at: updatedAt,
         jd_preview,
         question_count: qCount,
-        avg_score: averageScoreFromStored(scores),
+        avg_score: avgScore,
       };
     });
 
     return { data: summaries, error: null };
   } catch (e) {
+    const msg =
+      e instanceof TypeError && e.message === "Failed to fetch"
+        ? "Could not reach Supabase (network or blocked request). Check VPN, firewall, and that the project URL is correct."
+        : e instanceof Error
+          ? e.message
+          : "Failed to list sessions";
     return {
       data: [],
-      error: e instanceof Error ? e : new Error("Failed to list sessions"),
+      error: new Error(msg),
     };
   }
 }
@@ -148,22 +184,61 @@ export async function fetchInterviewSessionBySessionId(params: {
   try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from("interview_sessions")
+      .from(SESSIONS_TABLE)
       .select(
-        "session_id,user_id,jd_text,extracted,questions,question_scores,status,created_at,updated_at"
+        "session_id,user_id,jd_text,extracted_data,questions,question_scores,status,created_at,completed_at,overall_score,grade,hiring_likelihood"
       )
       .eq("session_id", params.sessionId)
       .eq("user_id", params.userId)
       .maybeSingle();
     if (error) return { data: null, error: new Error(error.message) };
     if (!data) return { data: null, error: null };
-    const row = data as InterviewSessionRow;
-    row.question_scores = Array.isArray(row.question_scores) ? row.question_scores : [];
+
+    const raw = data as Record<string, unknown>;
+    const extractedRaw = raw.extracted_data ?? raw.extracted;
+    const extracted =
+      extractedRaw !== null &&
+      typeof extractedRaw === "object" &&
+      !Array.isArray(extractedRaw)
+        ? (extractedRaw as Record<string, unknown>)
+        : null;
+
+    const qs = raw.question_scores;
+    const question_scores: StoredQuestionScore[] = Array.isArray(qs) ? (qs as StoredQuestionScore[]) : [];
+
+    const created_at = String(raw.created_at ?? "");
+    const completed_at =
+      typeof raw.completed_at === "string" ? raw.completed_at : null;
+    const updated_at = completed_at ?? created_at;
+
+    const row: InterviewSessionRow = {
+      session_id: String(raw.session_id ?? ""),
+      user_id: String(raw.user_id ?? ""),
+      jd_text: typeof raw.jd_text === "string" ? raw.jd_text : null,
+      extracted,
+      questions: raw.questions,
+      question_scores,
+      status: String(raw.status ?? ""),
+      created_at,
+      updated_at,
+      completed_at,
+      overall_score: typeof raw.overall_score === "number" ? raw.overall_score : null,
+      grade: typeof raw.grade === "string" ? raw.grade : null,
+      hiring_likelihood:
+        typeof raw.hiring_likelihood === "string" ? raw.hiring_likelihood : null,
+    };
+
     return { data: row, error: null };
   } catch (e) {
+    const msg =
+      e instanceof TypeError && e.message === "Failed to fetch"
+        ? "Could not reach Supabase (network or blocked request). Check VPN, firewall, and that the project URL is correct."
+        : e instanceof Error
+          ? e.message
+          : "Supabase fetch failed";
     return {
       data: null,
-      error: e instanceof Error ? e : new Error("Supabase fetch failed"),
+      error: new Error(msg),
     };
   }
 }

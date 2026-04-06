@@ -273,7 +273,7 @@ function ReportPageInner() {
               <p>{errorMessage}</p>
               <p className="text-xs">
                 If you just finished an interview, confirm the{" "}
-                <code className="rounded bg-muted px-1 py-0.5">interview_sessions</code> table exists
+                <code className="rounded bg-muted px-1 py-0.5">sessions</code> table exists
                 in Supabase (see <code className="rounded bg-muted px-1 py-0.5">supabase/migrations</code>
                 ) and intake saved your session.
               </p>
@@ -333,7 +333,7 @@ function ReportPageInner() {
           <p className="mt-4 text-sm text-muted-foreground">
             Demo mode: Supabase is not configured. Set{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_*</code> and add
-            the <code className="rounded bg-muted px-1 py-0.5 text-xs">interview_sessions</code> table to
+            the <code className="rounded bg-muted px-1 py-0.5 text-xs">sessions</code> table to
             load real reports.
           </p>
         ) : null}

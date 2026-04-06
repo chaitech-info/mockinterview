@@ -48,16 +48,16 @@ export async function POST(request: Request) {
 
     const fullBank = payload.questions.slice(0, FULL_INTERVIEW_QUESTIONS);
 
-    const { error: upsertError } = await supabase.from("interview_sessions").upsert(
+    const { error: upsertError } = await supabase.from("sessions").upsert(
       {
         session_id: payload.session_id,
         user_id: user.id,
+        user_email: typeof user.email === "string" ? user.email : null,
         jd_text: null,
-        extracted: (payload.extracted ?? null) as Record<string, unknown> | null,
+        extracted_data: (payload.extracted ?? null) as Record<string, unknown> | null,
         questions: fullBank,
         question_scores: [],
         status: "active",
-        updated_at: new Date().toISOString(),
       },
       { onConflict: "session_id" }
     );
