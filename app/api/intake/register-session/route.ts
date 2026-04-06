@@ -65,13 +65,22 @@ export async function POST(request: Request) {
     const questions =
       cap === null ? payload.questions : payload.questions.slice(0, cap);
 
-    const { error: insertError } = await supabase.from("interview_sessions").insert({
-      user_id: user.id,
-      n8n_session_id: payload.session_id,
-    });
+    const { error: upsertError } = await supabase.from("interview_sessions").upsert(
+      {
+        session_id: payload.session_id,
+        user_id: user.id,
+        jd_text: null,
+        extracted: (payload.extracted ?? null) as Record<string, unknown> | null,
+        questions,
+        question_scores: [],
+        status: "active",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "session_id" }
+    );
 
-    if (insertError) {
-      throw new Error(insertError.message);
+    if (upsertError) {
+      throw new Error(upsertError.message);
     }
 
     const response: IntakeResponse = {

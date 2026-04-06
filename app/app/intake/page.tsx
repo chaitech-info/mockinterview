@@ -14,6 +14,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import type { IntakeResponse } from "@/lib/session-store";
 import { clearActiveSession, saveActiveSession } from "@/lib/session-store";
+import { upsertInterviewSessionFromIntake } from "@/lib/supabase/interview-session";
 
 const MIN_JD_CHAR_COUNT = 50;
 
@@ -138,6 +139,14 @@ export default function IntakePage() {
       const intake = regJson.intake;
       setResult(intake);
       saveActiveSession(intake);
+      const { error: saveErr } = await upsertInterviewSessionFromIntake({
+        userId: user.id,
+        jdText: jdText.trim(),
+        intake,
+      });
+      if (saveErr) {
+        console.warn("[PrepAI] Could not save session to Supabase:", saveErr.message);
+      }
       void track("intake_analysis_complete", { sessionId: intake.session_id, plan: regJson.plan });
       setPhase("results");
     } catch (e) {
