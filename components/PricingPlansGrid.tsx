@@ -128,7 +128,11 @@ export function PricingPlansGrid({
           <PricingCard
             title="Free"
             price="$0"
-            features={["1 mock interview/month", "3 questions per interview", "No PDF report"]}
+            features={[
+              "1 free mock interview to start",
+              "3 questions per interview",
+              "No PDF report",
+            ]}
             ctaLabel={signedIn ? "Get started" : "Try free"}
             ctaHref="/app/intake"
             ctaGoogleSignIn={!signedIn}
@@ -162,9 +166,10 @@ export function PricingPlansGrid({
                 <PricingCard
                   title={plan.title}
                   price={plan.priceDisplay}
+                  priceCaption="One-time"
                   highlighted={idx === items.length - 1 && items.length > 0}
                   features={plan.features}
-                  ctaLabel="Subscribe"
+                  ctaLabel="Buy credits"
                   ctaHref="/app/intake"
                   paddlePriceId={plan.priceId}
                   paddleCheckoutEnvironment={checkoutEnvironment ?? undefined}

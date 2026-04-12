@@ -43,6 +43,18 @@ import {
 } from "@/lib/app-flow-ui";
 import { cn } from "@/lib/utils";
 
+const reportPageShellWide = cn(
+  appFlowMainClassName(),
+  "relative",
+  "pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16"
+);
+
+const reportPageShellNarrow = cn(
+  appFlowMainClassName(true),
+  "relative",
+  "pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16"
+);
+
 const METRIC_ORDER: QuestionCategory[] = [
   "Behavioral",
   "Technical",
@@ -326,7 +338,7 @@ function ReportPageInner() {
 
   if (!storageHydrated || phase === "loading") {
     return (
-      <div className={cn(appFlowMainClassName())}>
+      <div className={reportPageShellWide}>
         <Stepper currentStep={3} />
         <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -338,7 +350,7 @@ function ReportPageInner() {
 
   if (phase === "sign_in") {
     return (
-      <div className={cn(appFlowMainClassName(true))}>
+      <div className={reportPageShellNarrow}>
         <Stepper currentStep={3} />
         <Card className={cn(appFlowSurfaceCard, "mt-8")}>
           <CardHeader>
@@ -362,7 +374,7 @@ function ReportPageInner() {
 
   if (phase === "error") {
     return (
-      <div className={cn(appFlowMainClassName(true))}>
+      <div className={reportPageShellNarrow}>
         <Stepper currentStep={3} />
         <Card className={cn(appFlowSurfaceCard, "mt-8")}>
           <CardHeader>
@@ -395,7 +407,7 @@ function ReportPageInner() {
 
   if (phase === "no_session") {
     return (
-      <div className={cn(appFlowMainClassName(true))}>
+      <div className={reportPageShellNarrow}>
         <Stepper currentStep={3} />
         <Card className={cn(appFlowSurfaceCard, "mt-8")}>
           <CardHeader>
@@ -437,7 +449,7 @@ function ReportPageInner() {
     countUnansweredPlayable(sessionQuestions, sessionScores, fullBankUnlocked) > 0;
 
   return (
-    <div className={cn(appFlowMainClassName())}>
+    <div className={reportPageShellWide}>
       <Stepper currentStep={3} />
 
       {useMock && !display ? (
@@ -679,7 +691,7 @@ export default function ReportPage() {
   return (
     <Suspense
       fallback={
-        <div className={cn(appFlowMainClassName())}>
+        <div className={reportPageShellWide}>
           <Stepper currentStep={3} />
           <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />

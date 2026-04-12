@@ -31,11 +31,15 @@ export function PricingCard({
   paddleKeyMode,
   /** Extra keys merged into Paddle `customData`; `email` is set at click time when signed in. */
   checkoutCustomData,
+  /** Shown next to the price (e.g. "One-time") — omit for free tiers. */
+  priceCaption,
 }: {
   title: string;
   price: string;
   description?: string;
   features: string[];
+  /** Muted label under the price, e.g. one-time purchase. */
+  priceCaption?: string;
   highlighted?: boolean;
   ctaLabel: string;
   ctaHref: string;
@@ -108,8 +112,8 @@ export function PricingCard({
         </div>
         <div className="flex items-end gap-2">
           <div className="text-4xl font-semibold tracking-tight">{price}</div>
-          {price !== "$0" && !/[\/]/.test(price) ? (
-            <div className="pb-1 text-sm text-muted-foreground">per month</div>
+          {priceCaption ? (
+            <div className="pb-1 text-sm text-muted-foreground">{priceCaption}</div>
           ) : null}
         </div>
         {description ? <div className="text-sm text-muted-foreground">{description}</div> : null}

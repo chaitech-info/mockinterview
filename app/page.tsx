@@ -15,8 +15,8 @@ import {
   Star,
 } from "lucide-react";
 
-import { AuthButton } from "@/components/AuthButton";
 import { MoveIn, MoveInView } from "@/components/EntranceMotion";
+import { LandingNavBar } from "@/components/LandingNavBar";
 import { LandingHeroVideo } from "@/components/LandingHeroVideo";
 import { PricingSection } from "@/components/PricingSection";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
@@ -142,62 +142,7 @@ export default function Home() {
 
       <header className="sticky top-0 z-30 pt-4 pb-2">
         <Container>
-          <MoveIn from="top" delayMs={0} durationMs={720} className="w-full">
-            <div className="flex min-h-14 flex-col gap-3 rounded-full border border-[#e4e2e2] bg-white/90 py-2 px-3 shadow-[0_8px_40px_-12px_rgba(26,22,21,0.1)] backdrop-blur-xl sm:h-[60px] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-0 sm:px-4">
-            <a href="/" className="flex min-w-0 shrink-0 items-center gap-2 pl-1">
-              <Image
-                src="/logo.jpeg"
-                alt=""
-                width={200}
-                height={40}
-                className="h-9 w-auto max-w-[140px] object-contain object-left sm:max-w-[180px]"
-                priority
-              />
-              <div className="hidden text-sm font-semibold tracking-tight sm:block">Mock Interview</div>
-            </a>
-            <nav
-              className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1 sm:w-auto sm:gap-2"
-              aria-label="Primary"
-            >
-              <Button asChild variant="ghost" size="sm" className="shrink-0 rounded-full text-sm font-medium">
-                <a href="#features" onClick={() => void track("landing_click_features")}>
-                  Features
-                </a>
-              </Button>
-              <Button asChild variant="ghost" size="sm" className="shrink-0 rounded-full text-sm font-medium">
-                <a href="#how-it-works" onClick={() => void track("landing_click_see_how_it_works_nav")}>
-                  How it works
-                </a>
-              </Button>
-              <Button asChild variant="ghost" size="sm" className="shrink-0 rounded-full text-sm font-medium">
-                <a href="#pricing" onClick={() => void track("landing_click_pricing")}>
-                  Pricing
-                </a>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="shrink-0 rounded-full border-[#e4e2e2] font-semibold">
-                <Link href="/app/dashboard" onClick={() => void track("landing_click_dashboard")}>
-                  Dashboard
-                </Link>
-              </Button>
-              {authSession.status !== "signed_in" ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  className={cn(framerPillButtonPrimary, "h-9 px-4 text-sm")}
-                  onClick={() => {
-                    void track("landing_click_try_free");
-                    void signInWithGoogle("/app/intake");
-                  }}
-                >
-                  Try free
-                </Button>
-              ) : null}
-              <div className="shrink-0 pl-1">
-                <AuthButton />
-              </div>
-            </nav>
-          </div>
-          </MoveIn>
+          <LandingNavBar />
         </Container>
       </header>
 

@@ -44,6 +44,19 @@ import {
 } from "@/lib/app-flow-ui";
 import { cn } from "@/lib/utils";
 
+/** Space below sticky AppSubNav and above viewport bottom for scroll comfort */
+const interviewPageShellWide = cn(
+  appFlowMainClassName(),
+  "relative",
+  "pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16"
+);
+
+const interviewPageShellNarrow = cn(
+  appFlowMainClassName(true),
+  "relative",
+  "pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16"
+);
+
 type Phase = "idle" | "recording" | "thinking" | "feedback";
 
 type UiQuestion = {
@@ -568,7 +581,7 @@ function InterviewPageInner() {
 
   if (!sessionReady || auth.status === "loading") {
     return (
-      <div className={cn(appFlowMainClassName())}>
+      <div className={interviewPageShellWide}>
         <Stepper currentStep={2} />
         <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -583,7 +596,7 @@ function InterviewPageInner() {
       ? `/app/interview?session_id=${encodeURIComponent(resumeSessionId)}`
       : "/app/interview";
     return (
-      <div className={cn(appFlowMainClassName(true))}>
+      <div className={interviewPageShellNarrow}>
         <Stepper currentStep={2} />
         <Card className={cn(appFlowSurfaceCard, "mt-8")}>
           <CardHeader className="space-y-2">
@@ -610,7 +623,7 @@ function InterviewPageInner() {
 
   if (resumeLoadError) {
     return (
-      <div className={cn(appFlowMainClassName(true))}>
+      <div className={interviewPageShellNarrow}>
         <Stepper currentStep={2} />
         <Card className={cn(appFlowSurfaceCard, "mt-8")}>
           <CardHeader>
@@ -634,7 +647,7 @@ function InterviewPageInner() {
 
   if (total === 0 || !question) {
     return (
-      <div className={cn(appFlowMainClassName(true))}>
+      <div className={interviewPageShellNarrow}>
         <Stepper currentStep={2} />
         <Card className={cn(appFlowSurfaceCard, "mt-8")}>
           <CardHeader>
@@ -656,7 +669,7 @@ function InterviewPageInner() {
 
   if (!sessionId) {
     return (
-      <div className={cn(appFlowMainClassName(true))}>
+      <div className={interviewPageShellNarrow}>
         <Stepper currentStep={2} />
         <Card className={cn(appFlowSurfaceCard, "mt-8")}>
           <CardHeader>
@@ -675,7 +688,7 @@ function InterviewPageInner() {
 
   return (
     <>
-      <div className={cn(appFlowMainClassName())}>
+      <div className={interviewPageShellWide}>
         <Stepper currentStep={2} />
 
         <div className="mt-8 flex flex-col gap-6 lg:flex-row">
@@ -939,7 +952,7 @@ export default function InterviewPage() {
   return (
     <Suspense
       fallback={
-        <div className={cn(appFlowMainClassName())}>
+        <div className={interviewPageShellWide}>
           <Stepper currentStep={2} />
           <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />

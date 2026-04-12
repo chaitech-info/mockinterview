@@ -56,7 +56,7 @@ function unwrapPrice(row: unknown): PaddlePriceEntity | null {
   return row as PaddlePriceEntity;
 }
 
-function formatMoney(unit: UnitPrice | undefined, billing: BillingCycle): string {
+function formatMoney(unit: UnitPrice | undefined): string {
   if (!unit?.amount) return "—";
   const minor = Number(unit.amount);
   if (Number.isNaN(minor)) return "—";
@@ -69,12 +69,7 @@ function formatMoney(unit: UnitPrice | undefined, billing: BillingCycle): string
     maximumFractionDigits: 2,
   }).format(major);
 
-  if (billing?.interval) {
-    const i = billing.interval;
-    if (i === "month") return `${formatted}/mo`;
-    if (i === "year") return `${formatted}/yr`;
-    return `${formatted}/${i}`;
-  }
+  // One-time credit packs: flat price only (no /mo suffix from billing_cycle).
   return formatted;
 }
 
@@ -83,12 +78,20 @@ function featuresFromTitle(title: string): string[] {
   const n = m?.[1];
   if (n) {
     return [
-      `${n} mock interview sessions`,
+      `${n} interview credits added to your account after payment`,
+      "Use credits whenever you like — not a subscription",
+      "PDF report for each completed interview",
       "Voice practice & AI feedback",
       "Secure checkout via Paddle",
     ];
   }
-  return ["Mock interview access", "Voice coach & feedback", "Secure checkout via Paddle"];
+  return [
+    "Interview credits added after payment",
+    "Use credits whenever you like — not a subscription",
+    "PDF report for each completed interview",
+    "Voice coach & feedback",
+    "Secure checkout via Paddle",
+  ];
 }
 
 export function mapPaddleListPricesResponse(json: unknown): PaddleCatalogItem[] {
@@ -116,7 +119,7 @@ export function mapPaddleListPricesResponse(json: unknown): PaddleCatalogItem[] 
       item: {
         priceId: row.id,
         title,
-        priceDisplay: formatMoney(row.unit_price, row.billing_cycle ?? null),
+        priceDisplay: formatMoney(row.unit_price),
         features: featuresFromTitle(title),
       },
     });

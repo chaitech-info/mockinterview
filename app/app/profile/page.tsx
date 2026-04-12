@@ -20,9 +20,17 @@ import {
 } from "@/lib/app-flow-ui";
 import { cn } from "@/lib/utils";
 
+const profilePageShell = cn(
+  appFlowMainClassName(true),
+  "relative",
+  /* Extra space below sticky AppSubNav */
+  "pt-10 sm:pt-12 md:pt-16"
+);
+
 export default function ProfilePage() {
   const auth = useAuthSession();
   const [credits, setCredits] = React.useState<number | null>(null);
+  const [creditsLoading, setCreditsLoading] = React.useState(false);
 
   const email = React.useMemo(() => {
     if (auth.status !== "signed_in") return null;
@@ -44,7 +52,11 @@ export default function ProfilePage() {
   }, []);
 
   React.useEffect(() => {
-    if (auth.status !== "signed_in") return;
+    if (auth.status !== "signed_in") {
+      setCredits(null);
+      setCreditsLoading(false);
+      return;
+    }
 
     const supabase = getSupabaseClient();
     const user = auth.user;
@@ -65,6 +77,8 @@ export default function ProfilePage() {
     );
 
     let cancelled = false;
+    setCredits(null);
+    setCreditsLoading(true);
     void (async () => {
       try {
         const r = await fetch("/api/entitlements", { cache: "no-store" });
@@ -74,6 +88,8 @@ export default function ProfilePage() {
         }
       } catch {
         /* ignore */
+      } finally {
+        if (!cancelled) setCreditsLoading(false);
       }
     })();
 
@@ -84,7 +100,7 @@ export default function ProfilePage() {
 
   if (auth.status === "unconfigured") {
     return (
-      <div className={cn(appFlowMainClassName(true), "relative")}>
+      <div className={profilePageShell}>
         <Card className={appFlowSurfaceCard}>
           <CardHeader>
             <CardTitle className="text-lg font-semibold tracking-tight">Sign in unavailable</CardTitle>
@@ -99,7 +115,12 @@ export default function ProfilePage() {
 
   if (auth.status === "loading") {
     return (
-      <div className={cn(appFlowMainClassName(true), "relative flex min-h-[40vh] items-center justify-center gap-2 text-sm text-muted-foreground")}>
+      <div
+        className={cn(
+          profilePageShell,
+          "flex min-h-[40vh] items-center justify-center gap-2 text-sm text-muted-foreground"
+        )}
+      >
         <Loader2 className="h-5 w-5 animate-spin" />
         Loading profile…
       </div>
@@ -108,7 +129,7 @@ export default function ProfilePage() {
 
   if (auth.status === "signed_out") {
     return (
-      <div className={cn(appFlowMainClassName(true), "relative")}>
+      <div className={profilePageShell}>
         <Card className={appFlowSurfaceCard}>
           <CardHeader>
             <CardTitle className="text-lg font-semibold tracking-tight">Sign in to view your profile</CardTitle>
@@ -127,7 +148,7 @@ export default function ProfilePage() {
   const label = name ?? email ?? "Account";
 
   return (
-    <div className={cn(appFlowMainClassName(true), "relative")}>
+    <div className={profilePageShell}>
       <main>
         <div className="mb-8 flex items-start gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#e4e2e2] bg-white/80 shadow-sm backdrop-blur-sm">
@@ -179,8 +200,21 @@ export default function ProfilePage() {
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Balance
               </div>
-              <div className="mt-1 text-3xl font-semibold tabular-nums text-foreground">
-                {credits !== null ? credits : "—"}
+              <div
+                className="mt-1 flex min-h-[2.25rem] items-center justify-center"
+                aria-busy={creditsLoading}
+                aria-live="polite"
+              >
+                {creditsLoading ? (
+                  <span
+                    className="h-9 w-[4.5rem] max-w-[min(100%,7rem)] animate-pulse rounded-xl bg-[#d8d4cf]/90"
+                    aria-hidden
+                  />
+                ) : (
+                  <span className="text-3xl font-semibold tabular-nums text-foreground">
+                    {credits !== null ? credits : "—"}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">

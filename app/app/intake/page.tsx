@@ -45,16 +45,27 @@ export default function IntakePage() {
   const [jdTooShortMessage, setJdTooShortMessage] = React.useState(false);
   const [result, setResult] = React.useState<IntakeResponse | null>(null);
   const [interviewCredits, setInterviewCredits] = React.useState<number | null>(null);
+  const [interviewCreditsLoading, setInterviewCreditsLoading] = React.useState(false);
   const [startInterviewLoading, setStartInterviewLoading] = React.useState(false);
   const [startInterviewError, setStartInterviewError] = React.useState<string | null>(null);
   const timeouts = React.useRef<number[]>([]);
 
   React.useEffect(() => {
-    if (auth.status !== "signed_in") return;
+    if (auth.status !== "signed_in") {
+      setInterviewCredits(null);
+      setInterviewCreditsLoading(false);
+      return;
+    }
+    if (!isSupabaseConfigured()) {
+      setInterviewCredits(null);
+      setInterviewCreditsLoading(false);
+      return;
+    }
 
     let cancelled = false;
+    setInterviewCredits(null);
+    setInterviewCreditsLoading(true);
     void (async () => {
-      if (!isSupabaseConfigured()) return;
       try {
         const r = await fetch("/api/entitlements", { cache: "no-store" });
         const data = (await r.json()) as { ok?: boolean; interviewCredits?: number };
@@ -63,6 +74,8 @@ export default function IntakePage() {
         }
       } catch {
         /* ignore */
+      } finally {
+        if (!cancelled) setInterviewCreditsLoading(false);
       }
     })();
     return () => {
@@ -241,11 +254,24 @@ export default function IntakePage() {
     <div className={cn(appFlowMainClassName(true), "relative")}>
       <Stepper currentStep={1} />
 
-      {interviewCredits !== null ? (
-        <p className="mt-5 inline-flex items-center rounded-full border border-[#e4e2e2] bg-white/80 px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur-sm">
-          Interviews left:{" "}
-          <span className="ml-1.5 tabular-nums text-foreground">{interviewCredits}</span>
-        </p>
+      {auth.status === "signed_in" && isSupabaseConfigured() ? (
+        interviewCreditsLoading ? (
+          <p
+            className="mt-5 inline-flex items-center rounded-full border border-[#e4e2e2] bg-white/80 px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur-sm"
+            aria-busy
+            aria-label="Loading interview balance"
+          >
+            <span className="inline-flex items-center gap-2 text-muted-foreground">
+              Interviews left:
+              <span className="h-3.5 w-6 animate-pulse rounded-md bg-[#d8d4cf]/90" aria-hidden />
+            </span>
+          </p>
+        ) : interviewCredits !== null ? (
+          <p className="mt-5 inline-flex items-center rounded-full border border-[#e4e2e2] bg-white/80 px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur-sm">
+            Interviews left:{" "}
+            <span className="ml-1.5 tabular-nums text-foreground">{interviewCredits}</span>
+          </p>
+        ) : null
       ) : null}
 
       <div className="mt-8">
