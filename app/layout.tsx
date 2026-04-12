@@ -17,7 +17,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "PrepAI — AI interview coach",
+  title: "MockInterview — AI interview coach",
   description:
     "Ace your next interview with an AI coach that actually listens. Practice with voice, get tailored questions, and receive a scored report.",
 };

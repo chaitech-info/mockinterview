@@ -263,7 +263,7 @@ export function downloadReportPdf(model: ReportPdfModel, fileName: string): void
     doc.setFontSize(8);
     doc.setTextColor(...MUTED);
     doc.text(
-      `PrepAI mock interview report · Page ${i} of ${pageCount}`,
+      `MockInterview report · Page ${i} of ${pageCount}`,
       MARGIN,
       pageHeight(doc) - 8
     );

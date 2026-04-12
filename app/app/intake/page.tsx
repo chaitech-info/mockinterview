@@ -26,6 +26,12 @@ import {
 } from "@/lib/app-flow-ui";
 import { cn } from "@/lib/utils";
 
+const intakePageShell = cn(
+  appFlowMainClassName(true),
+  "relative",
+  "pt-10 sm:pt-12 md:pt-16 pb-10 sm:pb-12 md:pb-16"
+);
+
 const MIN_JD_CHAR_COUNT = 50;
 
 type Phase = "input" | "analyzing" | "results" | "error";
@@ -251,7 +257,7 @@ export default function IntakePage() {
   }
 
   return (
-    <div className={cn(appFlowMainClassName(true), "relative")}>
+    <div className={intakePageShell}>
       <Stepper currentStep={1} />
 
       {auth.status === "signed_in" && isSupabaseConfigured() ? (
