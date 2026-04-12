@@ -53,16 +53,21 @@ export function LandingNavBar() {
     <MoveIn from="top" delayMs={0} durationMs={720} className="w-full">
       <div className="rounded-[20px] border border-[#e4e2e2] bg-white/90 shadow-[0_8px_40px_-12px_rgba(26,22,21,0.1)] backdrop-blur-xl md:rounded-full">
         <div className="flex min-h-12 items-center justify-between gap-2 px-3 py-2 sm:min-h-[60px] sm:px-4 sm:py-0">
-          <a href="/" className="flex min-w-0 shrink-0 items-center gap-2 pl-0.5 sm:pl-1">
+          <a
+            href="/"
+            className="flex min-w-0 flex-1 items-center gap-1.5 pr-2 pl-0.5 sm:flex-initial sm:gap-2 sm:pr-0 sm:pl-1"
+          >
             <Image
               src="/logo.jpeg"
               alt=""
               width={200}
               height={40}
-              className="h-8 w-auto max-w-[120px] object-contain object-left sm:h-9 sm:max-w-[180px]"
+              className="h-7 w-auto max-w-[4.5rem] shrink-0 object-contain object-left sm:h-9 sm:max-w-[180px]"
               priority
             />
-            <span className="hidden text-sm font-semibold tracking-tight sm:inline">Mock Interview</span>
+            <span className="min-w-0 truncate text-xs font-semibold leading-snug tracking-tight text-foreground sm:text-sm">
+              Mock Interview
+            </span>
           </a>
 
           <nav

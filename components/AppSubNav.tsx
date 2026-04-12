@@ -94,7 +94,7 @@ export function AppSubNav() {
         >
           <Link
             href="/"
-            className="flex min-w-0 shrink-0 items-center gap-2 pl-0.5 sm:pl-1"
+            className="flex min-w-0 flex-1 items-center gap-1.5 pl-0.5 sm:flex-initial sm:gap-2 sm:pl-1"
             aria-label="Mock Interview home"
           >
             <Image
@@ -102,10 +102,10 @@ export function AppSubNav() {
               alt=""
               width={200}
               height={40}
-              className="h-8 w-auto max-w-[120px] object-contain object-left sm:h-9 sm:max-w-[180px]"
+              className="h-7 w-auto max-w-[4.5rem] shrink-0 object-contain object-left sm:h-9 sm:max-w-[180px]"
               priority
             />
-            <span className="hidden text-sm font-semibold tracking-tight text-foreground sm:inline">
+            <span className="min-w-0 truncate text-xs font-semibold leading-snug tracking-tight text-foreground sm:text-sm">
               Mock Interview
             </span>
           </Link>

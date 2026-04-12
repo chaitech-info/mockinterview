@@ -477,7 +477,7 @@ export default function IntakePage() {
                     ) : null}
                   </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-3">
                     <div
                       className="inline-block"
                       onClick={() => {
@@ -497,7 +497,6 @@ export default function IntakePage() {
                         Analyze job description →
                       </Button>
                     </div>
-                    <div className="text-sm text-muted-foreground">Google sign-in when you run analysis.</div>
                   </div>
                 </div>
               )}

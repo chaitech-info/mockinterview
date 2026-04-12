@@ -228,7 +228,7 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        <div className="mt-8">
+        <div className="mt-8 pb-8 sm:pb-10">
           <Button
             variant="outline"
             className={appFlowSecondaryPillClass}
