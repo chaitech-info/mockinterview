@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Loader2, Lock, Mic, SkipForward } from "lucide-react";
 
@@ -129,6 +129,7 @@ function buildFeedbackFromScoreRow(
 }
 
 function InterviewPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const resumeSessionId = searchParams.get("session_id")?.trim() ?? null;
 
@@ -236,9 +237,9 @@ function InterviewPageInner() {
           console.warn("[PrepAI] Final session sync:", e);
         }
       }
-      window.location.assign(sid ? `/app/report?session_id=${encodeURIComponent(sid)}` : "/app/report");
+      router.replace(sid ? `/app/report?session_id=${encodeURIComponent(sid)}` : "/app/report");
     })();
-  }, [sessionId, bankQuestions, playableCount]);
+  }, [sessionId, bankQuestions, playableCount, router]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -321,7 +322,7 @@ function InterviewPageInner() {
         const firstGap = firstUnansweredPlayableIndex(bank.map((q) => q.id), pc, answeredIds);
 
         if (firstGap === null) {
-          window.location.replace(`/app/report?session_id=${encodeURIComponent(resumeSessionId)}`);
+          router.replace(`/app/report?session_id=${encodeURIComponent(resumeSessionId)}`);
           return;
         }
 
@@ -351,7 +352,7 @@ function InterviewPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [resumeSessionId, auth.status]);
+  }, [resumeSessionId, auth.status, router]);
 
   React.useEffect(() => {
     return () => {

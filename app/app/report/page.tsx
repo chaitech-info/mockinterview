@@ -198,17 +198,59 @@ function ReportPageInner() {
         setErrorMessage(null);
       }
 
+      const trySnapshotFallback = (): boolean => {
+        if (cancelled) return false;
+        const snap = loadReportSnapshot();
+        if (snap?.sessionId === sessionId && snap.rows?.length) {
+          setVm(viewModelFromSnapshot(snap));
+          setFromSnapshot(true);
+          setLoadedSession(null);
+          setPhase("ready");
+          return true;
+        }
+        return false;
+      };
+
       try {
-        const res = await fetch(
-          `/api/interview-session?session_id=${encodeURIComponent(sessionId)}`,
-          { credentials: "include" }
-        );
-        const body = (await res.json().catch(() => null)) as
-          | { session?: InterviewSessionRow | null; error?: string }
-          | null;
+        const url = `/api/interview-session?session_id=${encodeURIComponent(sessionId)}`;
+        let res: Response | null = null;
+        type SessionApiBody = { session?: InterviewSessionRow | null; error?: string } | null;
+        let body: SessionApiBody = null;
+        let lastNetworkError: Error | null = null;
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) await new Promise((r) => setTimeout(r, 300 * attempt));
+          try {
+            res = await fetch(url, { credentials: "include" });
+            body = (await res.json().catch(() => null)) as SessionApiBody;
+            lastNetworkError = null;
+            break;
+          } catch (e) {
+            lastNetworkError = e instanceof Error ? e : new Error(String(e));
+            res = null;
+          }
+        }
+
         if (cancelled) return;
 
+        if (!res) {
+          if (trySnapshotFallback()) return;
+          const msg =
+            lastNetworkError?.message === "Failed to fetch"
+              ? "Network error loading your report. Try refreshing the page, or open this session from the dashboard."
+              : lastNetworkError?.message ?? "Failed to load report";
+          setErrorMessage(msg);
+          setPhase("error");
+          return;
+        }
+
+        if (res.status === 401) {
+          setPhase("sign_in");
+          return;
+        }
+
         if (!res.ok) {
+          if (trySnapshotFallback()) return;
           setErrorMessage(
             typeof body?.error === "string"
               ? body.error
@@ -220,6 +262,7 @@ function ReportPageInner() {
 
         const data = body?.session ?? null;
         if (!data) {
+          if (trySnapshotFallback()) return;
           setErrorMessage("No saved session found for this id.");
           setPhase("error");
           return;
@@ -229,6 +272,7 @@ function ReportPageInner() {
         const scores = Array.isArray(data.question_scores) ? data.question_scores : [];
         const built = buildReportViewModel(questions, scores);
         if (!built) {
+          if (trySnapshotFallback()) return;
           setErrorMessage("Session has no questions.");
           setPhase("error");
           return;
@@ -236,10 +280,12 @@ function ReportPageInner() {
         if (!cancelled) {
           setLoadedSession(data);
           setVm(built);
+          setFromSnapshot(false);
           setPhase("ready");
         }
       } catch (e) {
         if (!cancelled) {
+          if (trySnapshotFallback()) return;
           setErrorMessage(e instanceof Error ? e.message : "Failed to load report");
           setPhase("error");
         }
