@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
 import { Stepper } from "@/components/Stepper";
@@ -29,7 +30,10 @@ const MIN_JD_CHAR_COUNT = 50;
 
 type Phase = "input" | "analyzing" | "results" | "error";
 
+const CREDITS_UPDATED_EVENT = "interviewCreditsUpdated";
+
 export default function IntakePage() {
+  const router = useRouter();
   const auth = useAuthSession();
   const [phase, setPhase] = React.useState<Phase>("input");
 
@@ -41,6 +45,8 @@ export default function IntakePage() {
   const [jdTooShortMessage, setJdTooShortMessage] = React.useState(false);
   const [result, setResult] = React.useState<IntakeResponse | null>(null);
   const [interviewCredits, setInterviewCredits] = React.useState<number | null>(null);
+  const [startInterviewLoading, setStartInterviewLoading] = React.useState(false);
+  const [startInterviewError, setStartInterviewError] = React.useState<string | null>(null);
   const timeouts = React.useRef<number[]>([]);
 
   React.useEffect(() => {
@@ -63,6 +69,47 @@ export default function IntakePage() {
       cancelled = true;
     };
   }, [auth]);
+
+  async function startMockInterview() {
+    setStartInterviewError(null);
+    setStartInterviewLoading(true);
+    void track("intake_start_mock_interview");
+    try {
+      const res = await fetch("/api/interview/consume-credit", { method: "POST" });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        interviewCredits?: number;
+        message?: string;
+        error?: string;
+      };
+
+      if (!res.ok || !data.ok) {
+        setStartInterviewError(
+          data.message ??
+            (typeof data.error === "string" ? data.error : "Could not start the mock interview.")
+        );
+        if (typeof data.interviewCredits === "number") {
+          setInterviewCredits(data.interviewCredits);
+          window.dispatchEvent(
+            new CustomEvent(CREDITS_UPDATED_EVENT, { detail: { credits: data.interviewCredits } })
+          );
+        }
+        return;
+      }
+
+      if (typeof data.interviewCredits === "number") {
+        setInterviewCredits(data.interviewCredits);
+        window.dispatchEvent(
+          new CustomEvent(CREDITS_UPDATED_EVENT, { detail: { credits: data.interviewCredits } })
+        );
+      }
+      router.push("/app/interview");
+    } catch {
+      setStartInterviewError("Something went wrong. Please try again.");
+    } finally {
+      setStartInterviewLoading(false);
+    }
+  }
 
   React.useEffect(() => {
     return () => {
@@ -278,14 +325,39 @@ export default function IntakePage() {
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Button asChild className={appFlowPrimaryButtonClass}>
-                      <a
-                        href="/app/interview"
-                        onClick={() => void track("intake_start_mock_interview")}
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        type="button"
+                        className={appFlowPrimaryButtonClass}
+                        disabled={
+                          startInterviewLoading ||
+                          (typeof interviewCredits === "number" && interviewCredits < 1)
+                        }
+                        onClick={() => void startMockInterview()}
                       >
-                        Start mock interview →
-                      </a>
-                    </Button>
+                        {startInterviewLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Starting…
+                          </>
+                        ) : (
+                          <>Start mock interview →</>
+                        )}
+                      </Button>
+                      {startInterviewError ? (
+                        <p className="text-sm text-red-600" role="alert">
+                          {startInterviewError}
+                        </p>
+                      ) : null}
+                      {typeof interviewCredits === "number" && interviewCredits < 1 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No credits left.{" "}
+                          <a className="font-medium text-foreground underline" href="/#pricing">
+                            Buy credits
+                          </a>
+                        </p>
+                      ) : null}
+                    </div>
                     <Button
                       variant="outline"
                       className={appFlowSecondaryPillClass}

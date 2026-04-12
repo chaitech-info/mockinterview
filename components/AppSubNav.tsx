@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 const linkBase =
   "shrink-0 rounded-full px-3.5 py-2 text-sm font-medium transition-colors duration-200";
 
+const CREDITS_UPDATED_EVENT = "interviewCreditsUpdated";
+
 /**
  * Shared links for all /app/* routes — pill bar aligned with the marketing header.
  */
@@ -40,6 +42,17 @@ export function AppSubNav() {
       cancelled = true;
     };
   }, [auth]);
+
+  React.useEffect(() => {
+    const onCreditsUpdated = (e: Event) => {
+      const ce = e as CustomEvent<{ credits?: number }>;
+      if (typeof ce.detail?.credits === "number") {
+        setCredits(ce.detail.credits);
+      }
+    };
+    window.addEventListener(CREDITS_UPDATED_EVENT, onCreditsUpdated);
+    return () => window.removeEventListener(CREDITS_UPDATED_EVENT, onCreditsUpdated);
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 border-b border-[#e4e2e2]/70 bg-background/75 backdrop-blur-xl">
