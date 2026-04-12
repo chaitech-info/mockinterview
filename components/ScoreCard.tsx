@@ -18,7 +18,12 @@ export function ScoreCard({
 }) {
   if (score == null) {
     return (
-      <Card className={cn("shadow-sm", className)}>
+      <Card
+        className={cn(
+          "rounded-2xl border border-[#e4e2e2] bg-card/90 shadow-sm backdrop-blur-sm",
+          className
+        )}
+      >
         <CardContent className="p-5">
           <div className="text-sm font-medium text-muted-foreground">{label}</div>
           <div className="mt-3 text-sm text-muted-foreground">No scored answers in this category.</div>
@@ -30,7 +35,12 @@ export function ScoreCard({
   const tone = scoreTone(score);
 
   return (
-    <Card className={cn("shadow-sm", className)}>
+    <Card
+      className={cn(
+        "rounded-2xl border border-[#e4e2e2] bg-card/90 shadow-sm backdrop-blur-sm",
+        className
+      )}
+    >
       <CardContent className="p-5">
         <div className="text-sm font-medium text-muted-foreground">{label}</div>
         <div className="mt-3 flex items-baseline justify-between gap-4">

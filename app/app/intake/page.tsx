@@ -17,6 +17,13 @@ import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import type { IntakeResponse } from "@/lib/session-store";
 import { clearActiveSession, saveActiveSession } from "@/lib/session-store";
 import { upsertInterviewSessionFromIntake } from "@/lib/supabase/interview-session";
+import {
+  appFlowMainClassName,
+  appFlowPrimaryButtonClass,
+  appFlowSecondaryPillClass,
+  appFlowSurfaceCard,
+} from "@/lib/app-flow-ui";
+import { cn } from "@/lib/utils";
 
 const MIN_JD_CHAR_COUNT = 50;
 
@@ -184,28 +191,33 @@ export default function IntakePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-16">
-        <Stepper currentStep={1} />
+    <div className={cn(appFlowMainClassName(true), "relative")}>
+      <Stepper currentStep={1} />
 
-        {interviewCredits !== null ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Interviews left:{" "}
-            <strong className="tabular-nums text-foreground">{interviewCredits}</strong>
-          </p>
-        ) : null}
+      {interviewCredits !== null ? (
+        <p className="mt-5 inline-flex items-center rounded-full border border-[#e4e2e2] bg-white/80 px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur-sm">
+          Interviews left:{" "}
+          <span className="ml-1.5 tabular-nums text-foreground">{interviewCredits}</span>
+        </p>
+      ) : null}
 
-        <div className="mt-8">
-          <Card className="shadow-sm">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-xl">Paste the job description</CardTitle>
-              <div className="text-sm text-muted-foreground">
+      <div className="mt-8">
+        <Card className={appFlowSurfaceCard}>
+          <CardHeader className="space-y-3 pb-2">
+            <Badge
+              variant="outline"
+              className="w-fit rounded-full border-[#e4e2e2] bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              Step 1
+            </Badge>
+            <CardTitle className="text-2xl font-semibold tracking-tight">Paste the job description</CardTitle>
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 We&apos;ll extract the role, required skills, and generate up to 12 tailored questions.
                 You can answer the first three in the mock interview; the rest appear in your session list
                 as locked.
-              </div>
+              </p>
             </CardHeader>
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-5 pt-2">
               {phase === "results" ? (
                 <div className="space-y-5">
                   <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -213,21 +225,27 @@ export default function IntakePage() {
                     <span>Analysis complete</span>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-xl border border-border bg-background p-4">
-                      <div className="text-xs font-medium text-muted-foreground">Session</div>
-                      <div className="mt-1 text-sm font-semibold">
+                  <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
+                    <div className="rounded-2xl border border-[#e4e2e2] bg-[#faf8f6]/80 p-4 backdrop-blur-sm">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Session
+                      </div>
+                      <div className="mt-1 break-all text-sm font-semibold">
                         {result?.session_id ?? "—"}
                       </div>
                     </div>
-                    <div className="rounded-xl border border-border bg-background p-4">
-                      <div className="text-xs font-medium text-muted-foreground">Questions</div>
+                    <div className="rounded-2xl border border-[#e4e2e2] bg-[#faf8f6]/80 p-4 backdrop-blur-sm">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Questions
+                      </div>
                       <div className="mt-1 text-sm font-semibold">
                         {result?.total_questions ?? result?.questions?.length ?? 0}
                       </div>
                     </div>
-                    <div className="rounded-xl border border-border bg-background p-4">
-                      <div className="text-xs font-medium text-muted-foreground">Status</div>
+                    <div className="rounded-2xl border border-[#e4e2e2] bg-[#faf8f6]/80 p-4 backdrop-blur-sm">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Status
+                      </div>
                       <div className="mt-1 text-sm font-semibold">Ready</div>
                     </div>
                   </div>
@@ -238,17 +256,19 @@ export default function IntakePage() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="rounded-2xl border border-[#e4e2e2] bg-white/60 p-4 backdrop-blur-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-sm font-medium">
-                        Questions by category
-                      </div>
+                      <div className="text-sm font-semibold">Questions by category</div>
                       <div className="flex flex-wrap gap-2">
                         {["behavioral", "technical", "situational", "culture"].map((t) => {
                           const count =
                             result?.questions?.filter((q) => q.type === t).length ?? 0;
                           return (
-                            <Badge key={t} className="bg-muted text-foreground hover:bg-muted">
+                            <Badge
+                              key={t}
+                              variant="outline"
+                              className="rounded-full border-[#e4e2e2] bg-[#f4f1ee] font-medium text-foreground hover:bg-[#ebe4dc]"
+                            >
                               {count} {t}
                             </Badge>
                           );
@@ -258,7 +278,7 @@ export default function IntakePage() {
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Button asChild size="lg">
+                    <Button asChild className={appFlowPrimaryButtonClass}>
                       <a
                         href="/app/interview"
                         onClick={() => void track("intake_start_mock_interview")}
@@ -268,6 +288,7 @@ export default function IntakePage() {
                     </Button>
                     <Button
                       variant="outline"
+                      className={appFlowSecondaryPillClass}
                       onClick={() => {
                         clearTimers();
                         setPhase("input");
@@ -283,25 +304,26 @@ export default function IntakePage() {
                   </div>
                 </div>
               ) : phase === "analyzing" ? (
-                <div className="flex items-center gap-3 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                <div className="flex items-center gap-3 rounded-2xl border border-[#e4e2e2] bg-[#faf8f6]/90 p-4 text-sm text-muted-foreground backdrop-blur-sm">
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-foreground" />
                   <span className="font-medium text-foreground">{loadingText}</span>
                 </div>
               ) : phase === "error" ? (
                 <div className="space-y-4">
-                  <div className="rounded-xl border border-border bg-background p-4 text-sm">
-                    <div className="font-medium text-foreground">Something went wrong</div>
+                  <div className="rounded-2xl border border-[#e4e2e2] bg-white/70 p-4 text-sm backdrop-blur-sm">
+                    <div className="font-semibold text-foreground">Something went wrong</div>
                     <div className="mt-1 text-muted-foreground">{error ?? "Unknown error"}</div>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     {quotaExceeded ? (
-                      <Button asChild>
+                      <Button asChild className={appFlowPrimaryButtonClass}>
                         <a href="/#pricing" onClick={() => void track("intake_click_pricing_quota")}>
                           View pricing
                         </a>
                       </Button>
                     ) : null}
                     <Button
+                      className={quotaExceeded ? appFlowSecondaryPillClass : appFlowPrimaryButtonClass}
                       onClick={() => void runAnalysisSequence()}
                       disabled={jdText.trim().length < MIN_JD_CHAR_COUNT}
                     >
@@ -309,6 +331,7 @@ export default function IntakePage() {
                     </Button>
                     <Button
                       variant="outline"
+                      className={appFlowSecondaryPillClass}
                       onClick={() => {
                         setPhase("input");
                         setError(null);
@@ -333,7 +356,7 @@ export default function IntakePage() {
                         setJdTooShortMessage(false);
                       }
                     }}
-                    className="min-h-[220px]"
+                    className="min-h-[220px] rounded-2xl border-[#e4e2e2] bg-white/80 text-[15px] leading-relaxed shadow-sm backdrop-blur-sm focus-visible:ring-[#1a1615]/20"
                   />
 
                   <div className="space-y-2">
@@ -360,26 +383,23 @@ export default function IntakePage() {
                       }}
                     >
                       <Button
-                        size="lg"
-                        className={
-                          jdText.trim().length < MIN_JD_CHAR_COUNT
-                            ? "pointer-events-none"
-                            : undefined
-                        }
+                        className={cn(
+                          appFlowPrimaryButtonClass,
+                          jdText.trim().length < MIN_JD_CHAR_COUNT && "pointer-events-none"
+                        )}
                         onClick={() => void runAnalysisSequence()}
                         disabled={jdText.trim().length < MIN_JD_CHAR_COUNT}
                       >
                         Analyze job description →
                       </Button>
                     </div>
-                    <div className="text-sm text-muted-foreground">No signup required.</div>
+                    <div className="text-sm text-muted-foreground">Google sign-in when you run analysis.</div>
                   </div>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
-      </div>
     </div>
   );
 }

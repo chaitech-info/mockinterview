@@ -36,6 +36,13 @@ import { signInWithGoogle } from "@/lib/supabase/auth";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { hasFullQuestionBankAccess } from "@/lib/entitlements/full-bank-access";
 import { LIMITED_INTERVIEW_QUESTIONS } from "@/lib/entitlements/plan";
+import {
+  appFlowMainClassName,
+  appFlowPrimaryButtonClass,
+  appFlowSecondaryPillClass,
+  appFlowSurfaceCard,
+} from "@/lib/app-flow-ui";
+import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "recording" | "thinking" | "feedback";
 
@@ -96,6 +103,29 @@ function scoreTone(score: number) {
   if (score >= 8) return "bg-foreground text-background";
   if (score >= 5) return "bg-muted text-foreground";
   return "bg-muted/70 text-foreground";
+}
+
+/** Rehydrate coach panel when jumping to an already-scored question (sidebar). */
+function buildFeedbackFromScoreRow(
+  sessionIdStr: string | null,
+  q: UiQuestion,
+  row: ScoreRow
+): AnswerWebhookResponse {
+  return {
+    id: "",
+    session_id: sessionIdStr ?? "",
+    question_id: q.id,
+    question_text: q.prompt,
+    score: row.score,
+    feedback: row.feedback,
+    strength: row.strength ?? "",
+    improvement: row.improvement ?? "",
+    example_answer: null,
+    keywords_mentioned: null,
+    framework_used: "None",
+    answered_at: "",
+    user_id: "",
+  };
 }
 
 function InterviewPageInner() {
@@ -507,15 +537,41 @@ function InterviewPageInner() {
     setPhase("idle");
   }
 
+  function goToQuestion(nextIdx: number) {
+    if (nextIdx < 0 || nextIdx >= bankQuestions.length) return;
+    const target = bankQuestions[nextIdx];
+    if (target.order > playableCount) return;
+    if (phase === "thinking") return;
+    if (nextIdx === currentIdx) return;
+
+    cleanupRecording();
+    setSubmitError(null);
+    setMicError(null);
+
+    setCurrentIdx(nextIdx);
+
+    const row = scoreRowsRef.current.find((r) => r.id === target.id);
+    if (row) {
+      setFeedbackPayload(buildFeedbackFromScoreRow(sessionId, target, row));
+      setPhase("feedback");
+    } else {
+      setFeedbackPayload(null);
+      setPhase("idle");
+    }
+
+    void track("interview_sidebar_select_question", {
+      questionId: target.id,
+      toIndex: nextIdx,
+    });
+  }
+
   if (!sessionReady || auth.status === "loading") {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={2} />
-          <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading session…
-          </div>
+      <div className={cn(appFlowMainClassName())}>
+        <Stepper currentStep={2} />
+        <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading session…
         </div>
       </div>
     );
@@ -526,137 +582,119 @@ function InterviewPageInner() {
       ? `/app/interview?session_id=${encodeURIComponent(resumeSessionId)}`
       : "/app/interview";
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={2} />
-          <div className="mt-8 mx-auto w-full max-w-2xl">
-            <Card className="border-gray-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl">
-                  {resumeSessionId ? "Sign in to continue" : "Sign in required"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm text-muted-foreground">
-                {resumeSessionId ? (
-                  <p>Sign in with the account that owns this session to answer skipped questions.</p>
-                ) : (
-                  <p>You need to sign in to start an interview session.</p>
-                )}
-                <div>
-                  <Button onClick={() => void signInWithGoogle(returnTo)} className="mt-3">
-                    Sign in with Google
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+      <div className={cn(appFlowMainClassName(true))}>
+        <Stepper currentStep={2} />
+        <Card className={cn(appFlowSurfaceCard, "mt-8")}>
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-xl font-semibold tracking-tight">
+              {resumeSessionId ? "Sign in to continue" : "Sign in required"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
+            {resumeSessionId ? (
+              <p>Sign in with the account that owns this session to answer skipped questions.</p>
+            ) : (
+              <p>You need to sign in to start an interview session.</p>
+            )}
+            <div>
+              <Button onClick={() => void signInWithGoogle(returnTo)} className={cn(appFlowPrimaryButtonClass, "mt-1")}>
+                Sign in with Google
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (resumeLoadError) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={2} />
-          <div className="mt-8 mx-auto w-full max-w-2xl">
-            <Card className="border-gray-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl">Couldn’t resume session</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm text-muted-foreground">
-                <p>{resumeLoadError}</p>
-                <div className="flex flex-wrap gap-3">
-                  <Button asChild>
-                    <Link href="/app/intake">New intake</Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href="/app/dashboard">Dashboard</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+      <div className={cn(appFlowMainClassName(true))}>
+        <Stepper currentStep={2} />
+        <Card className={cn(appFlowSurfaceCard, "mt-8")}>
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold tracking-tight">Couldn’t resume session</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>{resumeLoadError}</p>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild className={appFlowPrimaryButtonClass}>
+                <Link href="/app/intake">New intake</Link>
+              </Button>
+              <Button asChild variant="outline" className={appFlowSecondaryPillClass}>
+                <Link href="/app/dashboard">Dashboard</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (total === 0 || !question) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={2} />
-          <div className="mt-8 mx-auto w-full max-w-2xl">
-            <Card className="border-gray-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl">No questions loaded</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm text-muted-foreground">
-                <p>
-                  Generate your question bank from a job description on the intake step, then open the mock
-                  interview again.
-                </p>
-                <Button asChild>
-                  <Link href="/app/intake">Go to intake</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+      <div className={cn(appFlowMainClassName(true))}>
+        <Stepper currentStep={2} />
+        <Card className={cn(appFlowSurfaceCard, "mt-8")}>
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold tracking-tight">No questions loaded</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Generate your question bank from a job description on the intake step, then open the mock
+              interview again.
+            </p>
+            <Button asChild className={appFlowPrimaryButtonClass}>
+              <Link href="/app/intake">Go to intake</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (!sessionId) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={2} />
-          <div className="mt-8 mx-auto w-full max-w-2xl">
-            <Card className="border-gray-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl">Session not found</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm text-muted-foreground">
-                <p>We couldn&apos;t find a session id for this interview. Run intake again to generate questions.</p>
-                <Button asChild>
-                  <Link href="/app/intake">Go to intake</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+      <div className={cn(appFlowMainClassName(true))}>
+        <Stepper currentStep={2} />
+        <Card className={cn(appFlowSurfaceCard, "mt-8")}>
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold tracking-tight">Session not found</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>We couldn&apos;t find a session id for this interview. Run intake again to generate questions.</p>
+            <Button asChild className={appFlowPrimaryButtonClass}>
+              <Link href="/app/intake">Go to intake</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={2} />
+      <div className={cn(appFlowMainClassName())}>
+        <Stepper currentStep={2} />
 
-          <div className="mt-8 flex flex-col gap-6 lg:flex-row">
+        <div className="mt-8 flex flex-col gap-6 lg:flex-row">
           <div className="flex-1 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">
+                <span className="font-semibold text-foreground">
                   Question {question.order}
                 </span>{" "}
                 of {total}
               </div>
-              <Badge className="bg-background" variant="outline">
+              <Badge
+                variant="outline"
+                className="rounded-full border-[#e4e2e2] bg-white/80 font-medium backdrop-blur-sm"
+              >
                 {question.category}
               </Badge>
             </div>
 
-            <QuestionCard
-              title="Question"
-              question={question.prompt}
-              className="border-gray-200"
-            >
+            <QuestionCard title="Question" question={question.prompt}>
               <Waveform isAnimating={phase === "recording"} />
 
               {micError ? (
@@ -671,28 +709,27 @@ function InterviewPageInner() {
                 </div>
               ) : null}
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 {phase === "idle" ? (
-                  <Button size="lg" onClick={() => void startRecording()} disabled={!sessionId}>
+                  <Button className={appFlowPrimaryButtonClass} onClick={() => void startRecording()} disabled={!sessionId}>
                     <Mic className="h-4 w-4" />
                     Start recording
                   </Button>
                 ) : null}
 
                 {phase === "recording" ? (
-                  <Button size="lg" onClick={() => void stopAndSubmit()}>
+                  <Button className={appFlowPrimaryButtonClass} onClick={() => void stopAndSubmit()}>
                     Stop &amp; submit
                   </Button>
                 ) : null}
 
                 <Button
-                  size="lg"
-                  variant="ghost"
+                  variant="outline"
+                  className={cn(appFlowSecondaryPillClass, "border-dashed")}
                   onClick={() => {
                     void track("interview_skip_question", { questionId: question.id });
                     nextQuestion();
                   }}
-                  className="justify-start"
                   disabled={phase === "thinking"}
                 >
                   <SkipForward className="h-4 w-4" />
@@ -708,16 +745,16 @@ function InterviewPageInner() {
               ) : null}
 
               {phase === "feedback" && feedbackPayload ? (
-                <Card className="border-gray-200 shadow-sm">
+                <Card className={cn(appFlowSurfaceCard, "border-[#dcd8d4] bg-[#faf8f6]/90")}>
                   <CardHeader className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <CardTitle className="text-lg">Coach feedback</CardTitle>
-                      <Badge className={scoreTone(feedbackPayload.score)}>
+                      <CardTitle className="text-lg font-semibold tracking-tight">Coach feedback</CardTitle>
+                      <Badge className={cn("rounded-full px-2.5 py-0.5", scoreTone(feedbackPayload.score))}>
                         {feedbackPayload.score}/10
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4 text-sm">
+                  <CardContent className="space-y-4 text-sm leading-relaxed">
                     <div>
                       <div className="font-semibold">Summary</div>
                       <div className="text-muted-foreground">{feedbackPayload.feedback}</div>
@@ -733,8 +770,8 @@ function InterviewPageInner() {
                     {(() => {
                       const example = extractExampleAnswerFromPayload(feedbackPayload);
                       return (
-                        <div className="rounded-lg border border-foreground/15 border-l-4 border-l-foreground/25 bg-muted/50 p-4">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <div className="rounded-2xl border border-[#e4e2e2] border-l-4 border-l-[#1a1615]/30 bg-white/70 p-4 backdrop-blur-sm">
+                          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                             Example answer
                           </div>
                           <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
@@ -755,8 +792,10 @@ function InterviewPageInner() {
                         Framework: {feedbackPayload.framework_used}
                       </div>
                     ) : null}
-                    <div className="flex justify-end">
-                      <Button onClick={nextQuestion}>Next question</Button>
+                    <div className="flex justify-end pt-1">
+                      <Button className={appFlowPrimaryButtonClass} onClick={nextQuestion}>
+                        Next question
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -765,9 +804,9 @@ function InterviewPageInner() {
           </div>
 
           <aside className="w-full lg:w-[360px]">
-            <Card className="border-gray-200 shadow-sm">
+            <Card className={cn(appFlowSurfaceCard, "lg:sticky lg:top-28")}>
               <CardHeader className="space-y-2">
-                <CardTitle className="text-base">Session progress</CardTitle>
+                <CardTitle className="text-base font-semibold tracking-tight">Session progress</CardTitle>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Overall score so far</span>
@@ -777,40 +816,67 @@ function InterviewPageInner() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
+                <p className="mb-1 text-xs text-muted-foreground">
+                  Tap a question to open it{phase === "thinking" ? " (wait for scoring to finish)" : ""}.
+                </p>
                 {bankQuestions.map((q) => {
                   const beyondPlayable = q.order > playableCount;
                   const scored = answeredSoFar.find((r) => r.id === q.id);
                   const qIndex = q.order - 1;
                   const isCurrent = Boolean(question && q.id === question.id);
+                  const canNavigate = !beyondPlayable && phase !== "thinking";
 
                   return (
-                    <div
+                    <button
                       key={q.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2"
+                      type="button"
+                      disabled={!canNavigate}
+                      aria-current={isCurrent ? "true" : undefined}
+                      onClick={() => goToQuestion(qIndex)}
+                      title={
+                        beyondPlayable
+                          ? "Unlock with a paid plan to practice this question"
+                          : phase === "thinking"
+                            ? "Wait for the current answer to finish scoring"
+                            : `Open question ${q.order}`
+                      }
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 rounded-2xl border border-[#e4e2e2] bg-white/70 px-3 py-2.5 text-left backdrop-blur-sm transition-colors",
+                        canNavigate && "hover:border-[#c4bdb5] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1615]/25",
+                        !canNavigate && "cursor-not-allowed opacity-[0.92]",
+                        isCurrent && "border-[#1a1615]/35 ring-1 ring-[#1a1615]/15"
+                      )}
                     >
                       <div className="min-w-0">
                         <div className="text-sm font-medium">Q{q.order}</div>
                         <div className="truncate text-xs text-muted-foreground">{q.category}</div>
                       </div>
                       {beyondPlayable ? (
-                        <Badge className="bg-muted text-muted-foreground hover:bg-muted">
+                        <Badge className="pointer-events-none shrink-0 bg-muted text-muted-foreground hover:bg-muted">
                           <Lock className="h-3.5 w-3.5" />
                           Locked
                         </Badge>
                       ) : scored ? (
-                        <Badge className={scoreTone(scored.score)}>{scored.score.toFixed(0)}/10</Badge>
+                        <Badge className={cn("pointer-events-none shrink-0", scoreTone(scored.score))}>
+                          {scored.score.toFixed(0)}/10
+                        </Badge>
                       ) : isCurrent ? (
-                        <Badge className="bg-background text-foreground hover:bg-background" variant="outline">
+                        <Badge
+                          className="pointer-events-none shrink-0 bg-background text-foreground hover:bg-background"
+                          variant="outline"
+                        >
                           Current
                         </Badge>
                       ) : qIndex < currentIdx ? (
-                        <Badge variant="outline" className="text-muted-foreground">
+                        <Badge variant="outline" className="pointer-events-none shrink-0 text-muted-foreground">
                           Skipped
                         </Badge>
                       ) : (
-                        <Badge className="bg-muted text-muted-foreground hover:bg-muted">Later</Badge>
+                        <Badge className="pointer-events-none shrink-0 bg-muted text-muted-foreground hover:bg-muted">
+                          Later
+                        </Badge>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </CardContent>
@@ -818,7 +884,6 @@ function InterviewPageInner() {
           </aside>
         </div>
       </div>
-    </div>
 
       {showFreeTierUpsell ? (
         <div
@@ -827,9 +892,9 @@ function InterviewPageInner() {
           aria-modal="true"
           aria-labelledby="free-tier-upsell-title"
         >
-          <Card className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col border-gray-200 shadow-lg">
-            <CardHeader className="shrink-0 space-y-2 border-b border-border pb-4">
-              <CardTitle id="free-tier-upsell-title" className="text-xl">
+          <Card className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border-[#e4e2e2] bg-white/95 shadow-2xl backdrop-blur-xl">
+            <CardHeader className="shrink-0 space-y-2 border-b border-[#e4e2e2] bg-[#faf8f6]/50 pb-4">
+              <CardTitle id="free-tier-upsell-title" className="text-xl font-semibold tracking-tight">
                 Want the full interview?
               </CardTitle>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -841,9 +906,9 @@ function InterviewPageInner() {
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
                 <PricingPlansGrid signedIn gridClassName="pb-2" />
               </div>
-              <div className="shrink-0 space-y-3 border-t border-border pt-4">
+              <div className="shrink-0 space-y-3 border-t border-[#e4e2e2] bg-[#faf8f6]/30 pt-4">
                 <Button
-                  className="w-full"
+                  className={cn(appFlowPrimaryButtonClass, "w-full")}
                   onClick={() => {
                     void track("interview_upsell_continue_to_report");
                     finalizeSessionAndGoReport();
@@ -873,13 +938,11 @@ export default function InterviewPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50">
-          <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
-            <Stepper currentStep={2} />
-            <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading session…
-            </div>
+        <div className={cn(appFlowMainClassName())}>
+          <Stepper currentStep={2} />
+          <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading session…
           </div>
         </div>
       }

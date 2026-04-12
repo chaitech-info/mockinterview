@@ -13,6 +13,13 @@ import { hasFullQuestionBankAccess } from "@/lib/entitlements/full-bank-access";
 import { countUnansweredPlayable } from "@/lib/interview/playable-unanswered";
 import type { InterviewSessionSummary } from "@/lib/supabase/interview-session";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import {
+  appFlowPrimaryButtonClass,
+  appFlowSecondaryPillClass,
+  appFlowSurfaceCard,
+  appFlowWideMainClassName,
+} from "@/lib/app-flow-ui";
+import { cn } from "@/lib/utils";
 
 function formatWhen(iso: string) {
   try {
@@ -129,11 +136,11 @@ export default function DashboardPage() {
       : errorMessage;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="mx-auto w-full min-w-0 max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 sm:py-10">
+    <div className="relative">
+      <main className={appFlowWideMainClassName}>
         <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#e4e2e2] bg-white/80 shadow-sm backdrop-blur-sm">
               <LayoutDashboard className="h-5 w-5 text-foreground" />
             </div>
             <div>
@@ -153,25 +160,27 @@ export default function DashboardPage() {
         ) : null}
 
         {phase === "sign_in" ? (
-          <Card className="max-w-lg border-gray-200 shadow-sm">
+          <Card className={cn(appFlowSurfaceCard, "max-w-lg")}>
             <CardHeader>
-              <CardTitle className="text-lg">Sign in to view your dashboard</CardTitle>
+              <CardTitle className="text-lg font-semibold tracking-tight">Sign in to view your dashboard</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>Your interview history is stored with your account.</p>
-              <Button onClick={() => void signInWithGoogle("/app/dashboard")}>Sign in with Google</Button>
+              <Button className={appFlowPrimaryButtonClass} onClick={() => void signInWithGoogle("/app/dashboard")}>
+                Sign in with Google
+              </Button>
             </CardContent>
           </Card>
         ) : null}
 
         {phase === "error" ? (
-          <Card className="max-w-lg border-gray-200 shadow-sm">
+          <Card className={cn(appFlowSurfaceCard, "max-w-lg")}>
             <CardHeader>
-              <CardTitle className="text-lg">Couldn’t load dashboard</CardTitle>
+              <CardTitle className="text-lg font-semibold tracking-tight">Couldn’t load dashboard</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>{configError}</p>
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className={appFlowSecondaryPillClass}>
                 <Link href="/">Back to home</Link>
               </Button>
             </CardContent>
@@ -181,7 +190,7 @@ export default function DashboardPage() {
         {phase === "ready" ? (
           <div className="space-y-4">
             {sessions.length === 0 ? (
-              <Card className="border-gray-200 shadow-sm">
+              <Card className={appFlowSurfaceCard}>
                 <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
                   <ClipboardList className="h-10 w-10 text-muted-foreground/60" />
                   <div className="space-y-1">
@@ -190,7 +199,7 @@ export default function DashboardPage() {
                       Paste a job description to generate questions and start a mock interview.
                     </p>
                   </div>
-                  <Button asChild>
+                  <Button asChild className={appFlowPrimaryButtonClass}>
                     <Link href="/app/intake">
                       Start from job description <ArrowRight className="ml-1 h-4 w-4" />
                     </Link>
@@ -198,7 +207,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <div className="overflow-hidden rounded-3xl border border-[#e4e2e2] bg-card/90 shadow-[0_8px_40px_-16px_rgba(26,22,21,0.08)] backdrop-blur-sm">
                 <div className="w-full min-w-0">
                   <table className="w-full table-fixed border-collapse text-sm">
                     <thead>

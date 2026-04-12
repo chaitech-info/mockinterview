@@ -12,6 +12,13 @@ import { signInWithGoogle, signOut } from "@/lib/supabase/auth";
 import { getUserProfile } from "@/lib/supabase/user-profile";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { saveUser } from "@/lib/user-store";
+import {
+  appFlowMainClassName,
+  appFlowPrimaryButtonClass,
+  appFlowSecondaryPillClass,
+  appFlowSurfaceCard,
+} from "@/lib/app-flow-ui";
+import { cn } from "@/lib/utils";
 
 export default function ProfilePage() {
   const auth = useAuthSession();
@@ -77,46 +84,42 @@ export default function ProfilePage() {
 
   if (auth.status === "unconfigured") {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-lg px-4 py-10 sm:py-16">
-          <Card className="border-gray-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Sign in unavailable</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Supabase is not configured on this deployment.
-            </CardContent>
-          </Card>
-        </div>
+      <div className={cn(appFlowMainClassName(true), "relative")}>
+        <Card className={appFlowSurfaceCard}>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold tracking-tight">Sign in unavailable</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Supabase is not configured on this deployment.
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (auth.status === "loading") {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto flex max-w-lg items-center justify-center gap-2 px-4 py-20 text-sm text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          Loading profile…
-        </div>
+      <div className={cn(appFlowMainClassName(true), "relative flex min-h-[40vh] items-center justify-center gap-2 text-sm text-muted-foreground")}>
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Loading profile…
       </div>
     );
   }
 
   if (auth.status === "signed_out") {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-lg px-4 py-10 sm:py-16">
-          <Card className="border-gray-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Sign in to view your profile</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <p>Your profile and interview balance are tied to your account.</p>
-              <Button onClick={() => void signInWithGoogle("/app/profile")}>Sign in with Google</Button>
-            </CardContent>
-          </Card>
-        </div>
+      <div className={cn(appFlowMainClassName(true), "relative")}>
+        <Card className={appFlowSurfaceCard}>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold tracking-tight">Sign in to view your profile</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>Your profile and interview balance are tied to your account.</p>
+            <Button className={appFlowPrimaryButtonClass} onClick={() => void signInWithGoogle("/app/profile")}>
+              Sign in with Google
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -124,10 +127,10 @@ export default function ProfilePage() {
   const label = name ?? email ?? "Account";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="mx-auto max-w-lg px-4 py-8 sm:py-12">
+    <div className={cn(appFlowMainClassName(true), "relative")}>
+      <main>
         <div className="mb-8 flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-background shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#e4e2e2] bg-white/80 shadow-sm backdrop-blur-sm">
             <User className="h-6 w-6 text-foreground" />
           </div>
           <div>
@@ -136,9 +139,9 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <Card className="border-gray-200 shadow-sm">
+        <Card className={appFlowSurfaceCard}>
           <CardHeader>
-            <CardTitle className="text-base">Account</CardTitle>
+            <CardTitle className="text-base font-semibold tracking-tight">Account</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
@@ -163,16 +166,16 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className="mt-6 border-gray-200 shadow-sm">
+        <Card className={cn(appFlowSurfaceCard, "mt-6")}>
           <CardHeader>
-            <CardTitle className="text-base">Interview credits</CardTitle>
+            <CardTitle className="text-base font-semibold tracking-tight">Interview credits</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
               Each credit lets you run <strong className="text-foreground">one</strong> mock interview from
               a job description. Your first credit is included when you sign up.
             </p>
-            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-center">
+            <div className="rounded-2xl border border-[#e4e2e2] bg-[#faf8f6]/80 px-4 py-3 text-center backdrop-blur-sm">
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Balance
               </div>
@@ -181,10 +184,10 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
-              <Button asChild variant="outline" size="sm">
+              <Button asChild className={cn(appFlowSecondaryPillClass, "h-10 px-4 text-sm")}>
                 <Link href="/#pricing">Buy credits</Link>
               </Button>
-              <Button asChild variant="outline" size="sm">
+              <Button asChild className={cn(appFlowSecondaryPillClass, "h-10 px-4 text-sm")}>
                 <Link href="/app/dashboard">Past interviews</Link>
               </Button>
             </div>
@@ -194,6 +197,7 @@ export default function ProfilePage() {
         <div className="mt-8">
           <Button
             variant="outline"
+            className={appFlowSecondaryPillClass}
             onClick={() => {
               void signOut();
             }}

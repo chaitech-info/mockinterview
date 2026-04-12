@@ -34,6 +34,13 @@ import type { InterviewSessionRow } from "@/lib/supabase/interview-session";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import {
+  appFlowMainClassName,
+  appFlowPrimaryButtonClass,
+  appFlowSecondaryPillClass,
+  appFlowSurfaceCard,
+  appFlowPanelClass,
+} from "@/lib/app-flow-ui";
 import { cn } from "@/lib/utils";
 
 const METRIC_ORDER: QuestionCategory[] = [
@@ -273,13 +280,11 @@ function ReportPageInner() {
 
   if (!storageHydrated || phase === "loading") {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={3} />
-          <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading report…
-          </div>
+      <div className={cn(appFlowMainClassName())}>
+        <Stepper currentStep={3} />
+        <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading report…
         </div>
       </div>
     );
@@ -287,86 +292,87 @@ function ReportPageInner() {
 
   if (phase === "sign_in") {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={3} />
-          <Card className="mt-8 border-gray-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-xl">Sign in to view your report</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <p>Your scored report is tied to your account.</p>
-              <Button
-                onClick={() =>
-                  void signInWithGoogle(`/app/report?session_id=${encodeURIComponent(sessionId ?? "")}`)
-                }
-              >
-                Sign in with Google
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+      <div className={cn(appFlowMainClassName(true))}>
+        <Stepper currentStep={3} />
+        <Card className={cn(appFlowSurfaceCard, "mt-8")}>
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold tracking-tight">Sign in to view your report</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>Your scored report is tied to your account.</p>
+            <Button
+              className={appFlowPrimaryButtonClass}
+              onClick={() =>
+                void signInWithGoogle(`/app/report?session_id=${encodeURIComponent(sessionId ?? "")}`)
+              }
+            >
+              Sign in with Google
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (phase === "error") {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={3} />
-          <Card className="mt-8 border-gray-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-xl">Report unavailable</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <p>{errorMessage}</p>
-              <p className="text-xs">
-                If you just finished an interview, confirm the{" "}
-                <code className="rounded bg-muted px-1 py-0.5">sessions</code> table exists
-                in Supabase (see <code className="rounded bg-muted px-1 py-0.5">supabase/migrations</code>
-                ) and intake saved your session.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Button asChild>
-                  <Link href="/app/intake">Start from intake</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/app/interview">Mock interview</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className={cn(appFlowMainClassName(true))}>
+        <Stepper currentStep={3} />
+        <Card className={cn(appFlowSurfaceCard, "mt-8")}>
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold tracking-tight">Report unavailable</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>{errorMessage}</p>
+            <p className="text-xs leading-relaxed">
+              If you just finished an interview, confirm the{" "}
+              <code className="rounded-md border border-[#e4e2e2] bg-[#faf8f6] px-1.5 py-0.5">sessions</code>{" "}
+              table exists in Supabase (see{" "}
+              <code className="rounded-md border border-[#e4e2e2] bg-[#faf8f6] px-1.5 py-0.5">
+                supabase/migrations
+              </code>
+              ) and intake saved your session.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild className={appFlowPrimaryButtonClass}>
+                <Link href="/app/intake">Start from intake</Link>
+              </Button>
+              <Button asChild variant="outline" className={appFlowSecondaryPillClass}>
+                <Link href="/app/interview">Mock interview</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (phase === "no_session") {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
-          <Stepper currentStep={3} />
-          <Card className="mt-8 border-gray-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-xl">No session to show</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <p>
-                Open the report from the end of a mock interview, or complete intake first so a{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">session_id</code> is saved.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Button asChild>
-                  <Link href="/app/intake">Go to intake</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/app/interview">Mock interview</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className={cn(appFlowMainClassName(true))}>
+        <Stepper currentStep={3} />
+        <Card className={cn(appFlowSurfaceCard, "mt-8")}>
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold tracking-tight">No session to show</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Open the report from the end of a mock interview, or complete intake first so a{" "}
+              <code className="rounded-md border border-[#e4e2e2] bg-[#faf8f6] px-1.5 py-0.5 text-xs">
+                session_id
+              </code>{" "}
+              is saved.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild className={appFlowPrimaryButtonClass}>
+                <Link href="/app/intake">Go to intake</Link>
+              </Button>
+              <Button asChild variant="outline" className={appFlowSecondaryPillClass}>
+                <Link href="/app/interview">Mock interview</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -385,59 +391,73 @@ function ReportPageInner() {
     countUnansweredPlayable(sessionQuestions, sessionScores, fullBankUnlocked) > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
-        <Stepper currentStep={3} />
+    <div className={cn(appFlowMainClassName())}>
+      <Stepper currentStep={3} />
 
-        {useMock && !display ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Demo mode: Supabase is not configured. Set{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_*</code> and add
-            the <code className="rounded bg-muted px-1 py-0.5 text-xs">sessions</code> table to
-            load real reports.
-          </p>
-        ) : null}
+      {useMock && !display ? (
+        <p className="mt-5 rounded-2xl border border-[#e4e2e2] bg-white/60 px-4 py-3 text-sm text-muted-foreground backdrop-blur-sm">
+          Demo mode: Supabase is not configured. Set{" "}
+          <code className="rounded-md border border-[#e4e2e2] bg-[#faf8f6] px-1.5 py-0.5 text-xs">
+            NEXT_PUBLIC_SUPABASE_*
+          </code>{" "}
+          and add the{" "}
+          <code className="rounded-md border border-[#e4e2e2] bg-[#faf8f6] px-1.5 py-0.5 text-xs">
+            sessions
+          </code>{" "}
+          table to load real reports.
+        </p>
+      ) : null}
 
-        {fromSnapshot && display ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Showing the report saved in this browser from your last completed interview. Sign in and open
-            from the interview flow to sync with your account.
-          </p>
-        ) : null}
+      {fromSnapshot && display ? (
+        <p className="mt-5 rounded-2xl border border-[#e4e2e2] bg-amber-50/40 px-4 py-3 text-sm text-muted-foreground backdrop-blur-sm">
+          Showing the report saved in this browser from your last completed interview. Sign in and open
+          from the interview flow to sync with your account.
+        </p>
+      ) : null}
 
-        {showContinueInterview && sessionId ? (
-          <Card className="mt-6 border-gray-200 shadow-sm">
-            <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                You still have unanswered questions in this session. Continue the mock interview to submit
-                answers and update your scores.
-              </p>
-              <Button asChild className="shrink-0">
-                <Link
-                  href={`/app/interview?session_id=${encodeURIComponent(sessionId)}`}
-                  onClick={() => void track("report_continue_interview", { sessionId })}
-                >
-                  Continue interview
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : null}
+      {showContinueInterview && sessionId ? (
+        <Card className={cn(appFlowSurfaceCard, "mt-6 border-[#dcd8d4] bg-[#faf8f6]/80")}>
+          <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              You still have unanswered questions in this session. Continue the mock interview to submit
+              answers and update your scores.
+            </p>
+            <Button asChild className={cn(appFlowPrimaryButtonClass, "shrink-0")}>
+              <Link
+                href={`/app/interview?session_id=${encodeURIComponent(sessionId)}`}
+                onClick={() => void track("report_continue_interview", { sessionId })}
+              >
+                Continue interview
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
-        <div className="mt-8 space-y-8">
-          <div className="w-full max-w-full space-y-8 rounded-xl border border-border bg-card p-5 shadow-md sm:p-6">
-            <header className="border-b border-border pb-4">
-              <h2 className="text-xl font-semibold tracking-tight text-foreground">Interview report</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{new Date().toLocaleString()}</p>
-            </header>
+      <div className="mt-8 space-y-8">
+        <div className={cn(appFlowPanelClass, "space-y-8")}>
+          <header className="border-b border-[#e4e2e2] pb-5">
+            <Badge
+              variant="outline"
+              className="mb-3 rounded-full border-[#e4e2e2] bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              Your results
+            </Badge>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              Interview report
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">{new Date().toLocaleString()}</p>
+          </header>
 
-            <Card className="border-gray-200 shadow-sm">
+          <Card className={cn(appFlowSurfaceCard, "bg-white/60")}>
               <CardHeader className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">Overall grade</div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Overall grade
+                    </div>
                     <div className="flex items-center gap-3">
-                      <Badge className="bg-foreground text-background hover:bg-foreground">
+                      <Badge className="rounded-full bg-[#1a1615] px-3 py-1 text-sm font-bold text-white hover:bg-[#1a1615]">
                         {display?.grade ?? reportMock.grade}
                       </Badge>
                       <div className="text-2xl font-semibold tracking-tight">
@@ -464,14 +484,17 @@ function ReportPageInner() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <Card className="border-gray-200 shadow-sm">
+              <Card className={cn(appFlowSurfaceCard, "bg-white/60")}>
                 <CardHeader>
-                  <CardTitle className="text-lg">Strengths</CardTitle>
+                  <CardTitle className="text-lg font-semibold tracking-tight">Strengths</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {(display?.strengths ?? reportMock.strengths).map((s) => (
-                    <div key={s} className="min-w-0 rounded-xl border border-border bg-background p-4">
-                      <div className="border-l-4 border-foreground pl-3 text-sm font-medium leading-relaxed break-words text-pretty">
+                    <div
+                      key={s}
+                      className="min-w-0 rounded-2xl border border-[#e4e2e2] bg-[#faf8f6]/60 p-4 backdrop-blur-sm"
+                    >
+                      <div className="border-l-4 border-[#1a1615] pl-3 text-sm font-medium leading-relaxed break-words text-pretty">
                         {s}
                       </div>
                     </div>
@@ -479,14 +502,17 @@ function ReportPageInner() {
                 </CardContent>
               </Card>
 
-              <Card className="border-gray-200 shadow-sm">
+              <Card className={cn(appFlowSurfaceCard, "bg-white/60")}>
                 <CardHeader>
-                  <CardTitle className="text-lg">Areas to improve</CardTitle>
+                  <CardTitle className="text-lg font-semibold tracking-tight">Areas to improve</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {(display?.improvements ?? reportMock.improvements).map((s) => (
-                    <div key={s} className="min-w-0 rounded-xl border border-border bg-background p-4">
-                      <div className="border-l-4 border-muted-foreground/40 pl-3 text-sm font-medium leading-relaxed break-words text-pretty">
+                    <div
+                      key={s}
+                      className="min-w-0 rounded-2xl border border-[#e4e2e2] bg-white/70 p-4 backdrop-blur-sm"
+                    >
+                      <div className="border-l-4 border-[#c4bdb5] pl-3 text-sm font-medium leading-relaxed break-words text-pretty">
                         {s}
                       </div>
                     </div>
@@ -495,16 +521,16 @@ function ReportPageInner() {
               </Card>
             </div>
 
-            <Card className="border-gray-200 shadow-sm">
+            <Card className={cn(appFlowSurfaceCard, "bg-white/60")}>
               <CardHeader>
-                <CardTitle className="text-lg">Study plan</CardTitle>
+                <CardTitle className="text-lg font-semibold tracking-tight">Study plan</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {(display?.studyPlan ?? reportMock.studyPlan).map((s) => (
                     <li
                       key={s}
-                      className="min-w-0 rounded-xl border border-border bg-background p-4 text-sm leading-relaxed text-foreground break-words"
+                      className="min-w-0 rounded-2xl border border-[#e4e2e2] bg-[#f4f1ee]/80 p-4 text-sm leading-relaxed text-foreground break-words"
                     >
                       {s}
                     </li>
@@ -513,9 +539,9 @@ function ReportPageInner() {
               </CardContent>
             </Card>
 
-            <Card className="border-gray-200 shadow-sm">
+            <Card className={cn(appFlowSurfaceCard, "bg-white/60")}>
               <CardHeader>
-                <CardTitle className="text-lg">Question-by-question breakdown</CardTitle>
+                <CardTitle className="text-lg font-semibold tracking-tight">Question-by-question breakdown</CardTitle>
               </CardHeader>
               <CardContent className="min-w-0 overflow-x-auto sm:overflow-x-visible">
                 <div className="w-full min-w-0 max-w-full">
@@ -528,16 +554,16 @@ function ReportPageInner() {
                     </colgroup>
                     <thead>
                       <tr className="text-left text-muted-foreground">
-                        <th className="border-b border-border pb-3 pr-2 text-xs font-semibold uppercase tracking-wide">
+                        <th className="border-b border-[#e4e2e2] pb-3 pr-2 text-xs font-semibold uppercase tracking-wide">
                           Q#
                         </th>
-                        <th className="border-b border-border pb-3 pr-2 text-xs font-semibold uppercase tracking-wide">
+                        <th className="border-b border-[#e4e2e2] pb-3 pr-2 text-xs font-semibold uppercase tracking-wide">
                           Category
                         </th>
-                        <th className="border-b border-border pb-3 pr-2 text-xs font-semibold uppercase tracking-wide">
+                        <th className="border-b border-[#e4e2e2] pb-3 pr-2 text-xs font-semibold uppercase tracking-wide">
                           Score
                         </th>
-                        <th className="border-b border-border pb-3 pr-0 text-xs font-semibold uppercase tracking-wide">
+                        <th className="border-b border-[#e4e2e2] pb-3 pr-0 text-xs font-semibold uppercase tracking-wide">
                           Feedback
                         </th>
                       </tr>
@@ -545,22 +571,22 @@ function ReportPageInner() {
                     <tbody>
                       {questionRows.map((row) => (
                         <tr key={`${row.id}-${row.category}`} className="align-top">
-                          <td className="border-b border-border py-3 pr-2 font-medium tabular-nums">
+                          <td className="border-b border-[#e4e2e2]/80 py-3 pr-2 font-medium tabular-nums">
                             {row.id}
                           </td>
-                          <td className="border-b border-border py-3 pr-2 break-words text-foreground">
+                          <td className="border-b border-[#e4e2e2]/80 py-3 pr-2 break-words text-foreground">
                             {row.category}
                           </td>
-                          <td className="border-b border-border py-3 pr-2 whitespace-nowrap">
+                          <td className="border-b border-[#e4e2e2]/80 py-3 pr-2 whitespace-nowrap">
                             {row.score != null ? (
-                              <Badge className={cn("shrink-0", scoreTone(row.score))}>
+                              <Badge className={cn("shrink-0 rounded-full px-2.5", scoreTone(row.score))}>
                                 {row.score.toFixed(1)}/10
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground">Skipped</span>
                             )}
                           </td>
-                          <td className="border-b border-border py-3 pl-0 pr-0 text-muted-foreground">
+                          <td className="border-b border-[#e4e2e2]/80 py-3 pl-0 pr-0 text-muted-foreground">
                             <div className="min-w-0 max-w-full leading-relaxed break-words [overflow-wrap:anywhere]">
                               {row.score == null
                                 ? "No answer submitted for this question."
@@ -576,20 +602,20 @@ function ReportPageInner() {
             </Card>
           </div>
 
-          <Card className="border-gray-200 shadow-sm">
-            <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <Card className={cn(appFlowSurfaceCard, "border-[#dcd8d4] bg-gradient-to-br from-[#faf8f6] to-white")}>
+            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
               <div>
-                <div className="text-base font-semibold">Ready to save this report?</div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-base font-semibold tracking-tight">Ready to save this report?</div>
+                <div className="mt-1 text-sm text-muted-foreground">
                   Download a scored PDF and keep practicing.
                 </div>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" onClick={handleDownloadPdf} disabled={downloading}>
+                <Button className={appFlowPrimaryButtonClass} onClick={handleDownloadPdf} disabled={downloading}>
                   <Download className="h-4 w-4" />
                   {downloading ? "Preparing PDF…" : "Download PDF report"}
                 </Button>
-                <Button asChild size="lg" variant="outline">
+                <Button asChild variant="outline" className={appFlowSecondaryPillClass}>
                   <a href="/app/intake" onClick={() => void track("report_start_new_session")}>
                     <RotateCcw className="h-4 w-4" />
                     Start a new session
@@ -599,7 +625,6 @@ function ReportPageInner() {
             </CardContent>
           </Card>
         </div>
-      </div>
     </div>
   );
 }
@@ -608,13 +633,11 @@ export default function ReportPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50">
-          <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
-            <Stepper currentStep={3} />
-            <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading…
-            </div>
+        <div className={cn(appFlowMainClassName())}>
+          <Stepper currentStep={3} />
+          <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading…
           </div>
         </div>
       }
