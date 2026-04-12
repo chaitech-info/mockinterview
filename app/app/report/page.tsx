@@ -26,6 +26,7 @@ import { buildReportViewModel, type ReportViewModel } from "@/lib/report/from-se
 import { buildReportPdfModel, downloadReportPdf } from "@/lib/report/generate-report-pdf";
 import type { ReportSnapshot } from "@/lib/report-snapshot";
 import { loadReportSnapshot } from "@/lib/report-snapshot";
+import { countUnansweredPlayable } from "@/lib/interview/playable-unanswered";
 import type { ApiQuestion } from "@/lib/session-store";
 import { loadActiveSession } from "@/lib/session-store";
 import type { InterviewSessionRow } from "@/lib/supabase/interview-session";
@@ -101,6 +102,29 @@ function ReportPageInner() {
   const [fromSnapshot, setFromSnapshot] = React.useState(false);
 
   const [downloading, setDownloading] = React.useState(false);
+  const [loadedSession, setLoadedSession] = React.useState<InterviewSessionRow | null>(null);
+  const [hasPurchased, setHasPurchased] = React.useState(false);
+
+  React.useEffect(() => {
+    if (auth.status !== "signed_in") {
+      setHasPurchased(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await fetch("/api/entitlements", { credentials: "include" });
+        const d = (await r.json()) as { ok?: boolean; hasPurchased?: boolean };
+        if (!cancelled && d.ok && d.hasPurchased) setHasPurchased(true);
+        else if (!cancelled) setHasPurchased(false);
+      } catch {
+        if (!cancelled) setHasPurchased(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.status]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -109,6 +133,7 @@ function ReportPageInner() {
       if (!storageHydrated) return;
 
       if (!isSupabaseConfigured()) {
+        if (!cancelled) setLoadedSession(null);
         if (!cancelled) {
           setUseMock(true);
           setVm(null);
@@ -119,6 +144,7 @@ function ReportPageInner() {
       }
 
       if (!sessionId) {
+        if (!cancelled) setLoadedSession(null);
         const snap = loadReportSnapshot();
         if (snap?.rows?.length) {
           if (!cancelled) {
@@ -153,6 +179,7 @@ function ReportPageInner() {
       }
 
       if (!cancelled) {
+        setLoadedSession(null);
         setUseMock(false);
         setFromSnapshot(false);
         setPhase("loading");
@@ -195,6 +222,7 @@ function ReportPageInner() {
           return;
         }
         if (!cancelled) {
+          setLoadedSession(data);
           setVm(built);
           setPhase("ready");
         }
@@ -341,6 +369,16 @@ function ReportPageInner() {
   const display = vm;
   const questionRows = display?.rows ?? questionScoresMock;
 
+  const sessionQuestions =
+    loadedSession && Array.isArray(loadedSession.questions)
+      ? (loadedSession.questions as ApiQuestion[])
+      : [];
+  const sessionScores = loadedSession?.question_scores ?? [];
+  const showContinueInterview =
+    Boolean(sessionId) &&
+    loadedSession?.status === "active" &&
+    countUnansweredPlayable(sessionQuestions, sessionScores, hasPurchased) > 0;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
@@ -360,6 +398,25 @@ function ReportPageInner() {
             Showing the report saved in this browser from your last completed interview. Sign in and open
             from the interview flow to sync with your account.
           </p>
+        ) : null}
+
+        {showContinueInterview && sessionId ? (
+          <Card className="mt-6 border-gray-200 shadow-sm">
+            <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                You still have unanswered questions in this session. Continue the mock interview to submit
+                answers and update your scores.
+              </p>
+              <Button asChild className="shrink-0">
+                <Link
+                  href={`/app/interview?session_id=${encodeURIComponent(sessionId)}`}
+                  onClick={() => void track("report_continue_interview", { sessionId })}
+                >
+                  Continue interview
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         ) : null}
 
         <div className="mt-8 space-y-8">

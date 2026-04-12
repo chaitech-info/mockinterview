@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { Loader2, Lock, Mic, SkipForward } from "lucide-react";
 
 import { PricingPlansGrid } from "@/components/PricingPlansGrid";
@@ -16,10 +18,17 @@ import { track } from "@/lib/firebase/client";
 import type { AnswerWebhookResponse } from "@/lib/interview/answer-api";
 import { extractExampleAnswerFromPayload, submitAnswerMultipart } from "@/lib/interview/answer-api";
 import { extensionForMime, pickAudioMimeType } from "@/lib/interview/recording";
+import {
+  allPlayableAnsweredByIds,
+  firstUnansweredPlayableIndex,
+  playableQuestionCount,
+} from "@/lib/interview/playable-unanswered";
 import { buildReportSnapshotFromInterview, saveReportSnapshot } from "@/lib/report-snapshot";
-import { loadActiveSession } from "@/lib/session-store";
+import type { ApiQuestion } from "@/lib/session-store";
+import { loadActiveSession, saveActiveSession } from "@/lib/session-store";
 import {
   updateInterviewSessionScores,
+  type InterviewSessionRow,
   type StoredQuestionScore,
 } from "@/lib/supabase/interview-session";
 import { getCurrentUser } from "@/lib/supabase/get-current-user";
@@ -56,9 +65,18 @@ function scoreRowsToStored(rows: ScoreRow[]): StoredQuestionScore[] {
   }));
 }
 
-function mapApiToUiQuestions(
-  questions: NonNullable<ReturnType<typeof loadActiveSession>>["questions"]
-): UiQuestion[] {
+function storedScoresToScoreRows(stored: StoredQuestionScore[]): ScoreRow[] {
+  return stored.map((s) => ({
+    id: s.id,
+    category: s.category as ScoreRow["category"],
+    score: s.score,
+    feedback: s.feedback,
+    strength: s.strength,
+    improvement: s.improvement,
+  }));
+}
+
+function mapApiToUiQuestions(questions: ApiQuestion[]): UiQuestion[] {
   return questions.map((q, index) => ({
     id: q.id,
     order: index + 1,
@@ -79,9 +97,13 @@ function scoreTone(score: number) {
   return "bg-muted/70 text-foreground";
 }
 
-export default function InterviewPage() {
+function InterviewPageInner() {
+  const searchParams = useSearchParams();
+  const resumeSessionId = searchParams.get("session_id")?.trim() ?? null;
+
   const auth = useAuthSession();
   const [sessionReady, setSessionReady] = React.useState(false);
+  const [resumeLoadError, setResumeLoadError] = React.useState<string | null>(null);
   const [sessionId, setSessionId] = React.useState<string | null>(null);
   const [bankQuestions, setBankQuestions] = React.useState<UiQuestion[]>([]);
   const [playableCount, setPlayableCount] = React.useState(0);
@@ -154,6 +176,10 @@ export default function InterviewPage() {
 
   const finalizeSessionAndGoReport = React.useCallback(() => {
     const sid = sessionId;
+    const orderedIds = bankQuestions.map((q) => q.id);
+    const answered = new Set(scoreRowsRef.current.map((r) => r.id));
+    const complete = allPlayableAnsweredByIds(orderedIds, playableCount, answered);
+
     void (async () => {
       if (sid) {
         try {
@@ -163,7 +189,7 @@ export default function InterviewPage() {
               userId: user.id,
               sessionId: sid,
               questionScores: scoreRowsToStored(scoreRowsRef.current),
-              status: "completed",
+              status: complete ? "completed" : "active",
             });
             if (error) console.warn("[PrepAI] Final session sync:", error.message);
           }
@@ -173,20 +199,107 @@ export default function InterviewPage() {
       }
       window.location.assign(sid ? `/app/report?session_id=${encodeURIComponent(sid)}` : "/app/report");
     })();
-  }, [sessionId]);
+  }, [sessionId, bankQuestions, playableCount]);
 
   React.useEffect(() => {
     let cancelled = false;
 
     void (async () => {
-      const stored = loadActiveSession();
-      if (stored?.session_id) setSessionId(stored.session_id);
+      if (!resumeSessionId) {
+        const stored = loadActiveSession();
+        if (stored?.session_id) setSessionId(stored.session_id);
 
-      if (stored?.questions?.length) {
-        const raw = stored.questions;
+        if (stored?.questions?.length) {
+          const raw = stored.questions;
+          if (!cancelled) {
+            setBankQuestions(mapApiToUiQuestions(raw));
+            setPlayableCount(Math.min(LIMITED_INTERVIEW_QUESTIONS, raw.length));
+          }
+        }
+        if (!cancelled) setSessionReady(true);
+        return;
+      }
+
+      if (auth.status === "loading") return;
+
+      if (auth.status !== "signed_in") {
+        if (!cancelled) setSessionReady(true);
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/interview-session?session_id=${encodeURIComponent(resumeSessionId)}`,
+          { credentials: "include" }
+        );
+        const body = (await res.json().catch(() => null)) as
+          | { session?: InterviewSessionRow | null; error?: string }
+          | null;
+
+        if (cancelled) return;
+
+        if (!res.ok) {
+          setResumeLoadError(
+            typeof body?.error === "string"
+              ? body.error
+              : `Could not load session (HTTP ${res.status}).`
+          );
+          setSessionReady(true);
+          return;
+        }
+
+        const row = body?.session;
+        if (!row) {
+          setResumeLoadError("No saved session found for this id.");
+          setSessionReady(true);
+          return;
+        }
+
+        const apiQuestions = Array.isArray(row.questions) ? (row.questions as ApiQuestion[]) : [];
+        if (apiQuestions.length === 0) {
+          setResumeLoadError("This session has no questions.");
+          setSessionReady(true);
+          return;
+        }
+
+        let hasPurchased = false;
+        try {
+          const er = await fetch("/api/entitlements", { credentials: "include" });
+          const ed = (await er.json()) as { ok?: boolean; hasPurchased?: boolean };
+          if (ed.ok && ed.hasPurchased) hasPurchased = true;
+        } catch {
+          /* ignore */
+        }
+
+        const bank = mapApiToUiQuestions(apiQuestions);
+        const pc = playableQuestionCount(bank.length, hasPurchased);
+        const storedScores = Array.isArray(row.question_scores) ? row.question_scores : [];
+        const answeredIds = new Set(storedScores.map((s) => s.id));
+        const firstGap = firstUnansweredPlayableIndex(bank.map((q) => q.id), pc, answeredIds);
+
+        if (firstGap === null) {
+          window.location.replace(`/app/report?session_id=${encodeURIComponent(resumeSessionId)}`);
+          return;
+        }
+
+        saveActiveSession({
+          success: true,
+          session_id: row.session_id,
+          extracted: row.extracted ?? undefined,
+          questions: apiQuestions,
+          total_questions: apiQuestions.length,
+        });
+
+        setSessionId(row.session_id);
+        setBankQuestions(bank);
+        setPlayableCount(pc);
+        setScoreRows(storedScoresToScoreRows(storedScores));
+        setCurrentIdx(firstGap);
+        setPhase("idle");
+        setResumeLoadError(null);
+      } catch (e) {
         if (!cancelled) {
-          setBankQuestions(mapApiToUiQuestions(raw));
-          setPlayableCount(Math.min(LIMITED_INTERVIEW_QUESTIONS, raw.length));
+          setResumeLoadError(e instanceof Error ? e.message : "Could not load session.");
         }
       }
       if (!cancelled) setSessionReady(true);
@@ -195,7 +308,7 @@ export default function InterviewPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [resumeSessionId, auth.status]);
 
   React.useEffect(() => {
     return () => {
@@ -366,6 +479,18 @@ export default function InterviewPage() {
           buildReportSnapshotFromInterview(sessionId, questions, scoreRowsRef.current)
         );
       }
+
+      const orderedIds = bankQuestions.map((q) => q.id);
+      const answered = new Set(scoreRowsRef.current.map((r) => r.id));
+      const firstGap = firstUnansweredPlayableIndex(orderedIds, playableCount, answered);
+
+      if (firstGap !== null) {
+        void track("interview_resume_skipped", { toIndex: firstGap });
+        setCurrentIdx(firstGap);
+        setPhase("idle");
+        return;
+      }
+
       void track("interview_finish_session");
       if (playableCount < bankQuestions.length) {
         void track("interview_free_tier_upsell_shown");
@@ -395,6 +520,9 @@ export default function InterviewPage() {
   }
 
   if (auth.status === "signed_out" || auth.status === "unconfigured") {
+    const returnTo = resumeSessionId
+      ? `/app/interview?session_id=${encodeURIComponent(resumeSessionId)}`
+      : "/app/interview";
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
@@ -402,16 +530,47 @@ export default function InterviewPage() {
           <div className="mt-8 mx-auto w-full max-w-2xl">
             <Card className="border-gray-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-xl">Sign in required</CardTitle>
+                <CardTitle className="text-xl">
+                  {resumeSessionId ? "Sign in to continue" : "Sign in required"}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm text-muted-foreground">
-                You need to sign in to start an interview session.
+                {resumeSessionId ? (
+                  <p>Sign in with the account that owns this session to answer skipped questions.</p>
+                ) : (
+                  <p>You need to sign in to start an interview session.</p>
+                )}
                 <div>
-                  <Button
-                    onClick={() => void signInWithGoogle("/app/interview")}
-                    className="mt-3"
-                  >
+                  <Button onClick={() => void signInWithGoogle(returnTo)} className="mt-3">
                     Sign in with Google
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (resumeLoadError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
+          <Stepper currentStep={2} />
+          <div className="mt-8 mx-auto w-full max-w-2xl">
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl">Couldn’t resume session</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm text-muted-foreground">
+                <p>{resumeLoadError}</p>
+                <div className="flex flex-wrap gap-3">
+                  <Button asChild>
+                    <Link href="/app/intake">New intake</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/app/dashboard">Dashboard</Link>
                   </Button>
                 </div>
               </CardContent>
@@ -619,8 +778,8 @@ export default function InterviewPage() {
                 {bankQuestions.map((q) => {
                   const beyondPlayable = q.order > playableCount;
                   const scored = answeredSoFar.find((r) => r.id === q.id);
-                  const isUpcoming =
-                    !beyondPlayable && !scored && question && q.id !== question.id;
+                  const qIndex = q.order - 1;
+                  const isCurrent = Boolean(question && q.id === question.id);
 
                   return (
                     <div
@@ -638,15 +797,16 @@ export default function InterviewPage() {
                         </Badge>
                       ) : scored ? (
                         <Badge className={scoreTone(scored.score)}>{scored.score.toFixed(0)}/10</Badge>
-                      ) : isUpcoming ? (
-                        <Badge className="bg-muted text-muted-foreground hover:bg-muted">
-                          <Lock className="h-3.5 w-3.5" />
-                          Locked
-                        </Badge>
-                      ) : (
+                      ) : isCurrent ? (
                         <Badge className="bg-background text-foreground hover:bg-background" variant="outline">
                           Current
                         </Badge>
+                      ) : qIndex < currentIdx ? (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Skipped
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-muted text-muted-foreground hover:bg-muted">Later</Badge>
                       )}
                     </div>
                   );
@@ -707,3 +867,22 @@ export default function InterviewPage() {
   );
 }
 
+export default function InterviewPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50">
+          <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-16">
+            <Stepper currentStep={2} />
+            <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading session…
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <InterviewPageInner />
+    </Suspense>
+  );
+}

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { track } from "@/lib/firebase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
+import { countUnansweredPlayable } from "@/lib/interview/playable-unanswered";
 import type { InterviewSessionSummary } from "@/lib/supabase/interview-session";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 
@@ -29,12 +30,34 @@ export default function DashboardPage() {
   /** False until the first list fetch finishes for the current `userId` (avoids a one-frame "ready" with no data). */
   const [sessionsListReady, setSessionsListReady] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [hasPurchased, setHasPurchased] = React.useState(false);
 
   const userId = auth.status === "signed_in" ? auth.user.id : null;
 
   React.useEffect(() => {
     void track("dashboard_view");
   }, []);
+
+  React.useEffect(() => {
+    if (!userId) {
+      setHasPurchased(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await fetch("/api/entitlements", { credentials: "include" });
+        const data = (await r.json()) as { ok?: boolean; hasPurchased?: boolean };
+        if (!cancelled && data.ok && data.hasPurchased) setHasPurchased(true);
+        else if (!cancelled) setHasPurchased(false);
+      } catch {
+        if (!cancelled) setHasPurchased(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   React.useEffect(() => {
     if (!userId) {
@@ -180,7 +203,7 @@ export default function DashboardPage() {
                         <th className="px-4 py-3 font-medium">Questions</th>
                         <th className="px-4 py-3 font-medium">Avg score</th>
                         <th className="min-w-[200px] px-4 py-3 font-medium">Job (preview)</th>
-                        <th className="px-4 py-3 font-medium text-right">Report</th>
+                        <th className="px-4 py-3 font-medium text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -214,16 +237,34 @@ export default function DashboardPage() {
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 align-top text-right">
-                            <Button asChild size="sm" variant="outline">
-                              <Link
-                                href={`/app/report?session_id=${encodeURIComponent(s.session_id)}`}
-                                onClick={() =>
-                                  void track("dashboard_open_report", { sessionId: s.session_id })
-                                }
-                              >
-                                View report
-                              </Link>
-                            </Button>
+                            <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
+                              {s.status === "active" &&
+                              countUnansweredPlayable(s.questions, s.question_scores, hasPurchased) >
+                                0 ? (
+                                <Button asChild size="sm">
+                                  <Link
+                                    href={`/app/interview?session_id=${encodeURIComponent(s.session_id)}`}
+                                    onClick={() =>
+                                      void track("dashboard_continue_interview", {
+                                        sessionId: s.session_id,
+                                      })
+                                    }
+                                  >
+                                    Continue interview
+                                  </Link>
+                                </Button>
+                              ) : null}
+                              <Button asChild size="sm" variant="outline">
+                                <Link
+                                  href={`/app/report?session_id=${encodeURIComponent(s.session_id)}`}
+                                  onClick={() =>
+                                    void track("dashboard_open_report", { sessionId: s.session_id })
+                                  }
+                                >
+                                  View report
+                                </Link>
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}

@@ -1,4 +1,4 @@
-import type { IntakeResponse } from "@/lib/session-store";
+import type { ApiQuestion, IntakeResponse } from "@/lib/session-store";
 import { letterGrade } from "@/lib/report-build";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -99,6 +99,8 @@ export type InterviewSessionSummary = {
   question_count: number;
   /** Average score across answered questions, or null if none scored */
   avg_score: number | null;
+  question_scores: StoredQuestionScore[];
+  questions: ApiQuestion[];
 };
 
 function averageScoreFromStored(scores: StoredQuestionScore[]): number | null {
@@ -108,9 +110,9 @@ function averageScoreFromStored(scores: StoredQuestionScore[]): number | null {
   return Math.round((sum / nums.length) * 10) / 10;
 }
 
-/** Columns on `public.sessions` used for the dashboard list (matches live DB without `question_scores`). */
+/** Columns on `public.sessions` used for the dashboard list. */
 export const SESSIONS_LIST_SELECT =
-  "session_id,status,created_at,completed_at,jd_text,questions,overall_score" as const;
+  "session_id,status,created_at,completed_at,jd_text,questions,overall_score,question_scores" as const;
 
 /** Full row fields needed to build the post-interview report. */
 export const SESSION_REPORT_SELECT =
@@ -159,8 +161,8 @@ export function mapSessionRowsToSummaries(
   if (!rows.length) return [];
 
   return rows.map((row) => {
-    const questions = row.questions;
-    const qCount = Array.isArray(questions) ? questions.length : 0;
+    const questionsRaw = row.questions;
+    const qCount = Array.isArray(questionsRaw) ? questionsRaw.length : 0;
     const jd = typeof row.jd_text === "string" ? row.jd_text.trim() : "";
     const jd_preview =
       jd.length > 90 ? `${jd.slice(0, 90).trim()}…` : jd || null;
@@ -177,6 +179,15 @@ export function mapSessionRowsToSummaries(
         ? Math.round(row.overall_score * 10) / 10
         : null;
 
+    const qs = row.question_scores;
+    const question_scores: StoredQuestionScore[] = Array.isArray(qs)
+      ? (qs as StoredQuestionScore[])
+      : [];
+
+    const questions: ApiQuestion[] = Array.isArray(questionsRaw)
+      ? (questionsRaw as ApiQuestion[])
+      : [];
+
     return {
       session_id: String(row.session_id ?? ""),
       status: row.status === "completed" ? "completed" : "active",
@@ -185,6 +196,8 @@ export function mapSessionRowsToSummaries(
       jd_preview,
       question_count: qCount,
       avg_score: fromOverall,
+      question_scores,
+      questions,
     };
   });
 }
