@@ -492,8 +492,8 @@ function ReportPageInner() {
         </Card>
       ) : null}
 
-      <div className="mt-8 space-y-8">
-        <div className={cn(appFlowPanelClass, "space-y-8")}>
+      <div className="mt-8 min-w-0 space-y-8">
+        <div className={cn(appFlowPanelClass, "min-w-0 space-y-8")}>
           <header className="border-b border-[#e4e2e2] pb-5">
             <Badge
               variant="outline"
@@ -597,13 +597,57 @@ function ReportPageInner() {
               </CardContent>
             </Card>
 
-            <Card className={cn(appFlowSurfaceCard, "bg-white/60")}>
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold tracking-tight">Question-by-question breakdown</CardTitle>
+            <Card className={cn(appFlowSurfaceCard, "min-w-0 bg-white/60")}>
+              <CardHeader className="min-w-0 px-4 pt-5 sm:px-6">
+                <CardTitle className="text-lg font-semibold tracking-tight">
+                  Question-by-question breakdown
+                </CardTitle>
               </CardHeader>
-              <CardContent className="min-w-0 overflow-x-auto sm:overflow-x-visible">
-                <div className="w-full min-w-0 max-w-full">
-                  <table className="w-full min-w-0 max-w-full table-fixed border-separate border-spacing-0 text-sm">
+              <CardContent className="min-w-0 px-4 pb-5 sm:px-6 sm:pb-6">
+                {/* Mobile: stacked cards (table-fixed squeezed columns on narrow viewports) */}
+                <div className="space-y-4 md:hidden">
+                  {questionRows.map((row) => {
+                    const feedbackText =
+                      row.score == null
+                        ? "No answer submitted for this question."
+                        : row.feedback || "—";
+                    return (
+                      <div
+                        key={`m-${row.id}-${row.category}`}
+                        className="min-w-0 rounded-2xl border border-[#e4e2e2] bg-[#faf8f6]/50 p-4 shadow-sm"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 gap-y-2">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Question {row.id}
+                          </span>
+                          {row.score != null ? (
+                            <Badge className={cn("shrink-0 rounded-full px-2.5", scoreTone(row.score))}>
+                              {row.score.toFixed(1)}/10
+                            </Badge>
+                          ) : (
+                            <span className="text-xs font-medium text-muted-foreground">Skipped</span>
+                          )}
+                        </div>
+                        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Category
+                        </p>
+                        <p className="mt-1 break-words text-sm font-medium leading-snug text-foreground">
+                          {row.category}
+                        </p>
+                        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Feedback
+                        </p>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere] break-words">
+                          {feedbackText}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* md+: table layout */}
+                <div className="hidden min-w-0 overflow-x-auto md:block">
+                  <table className="w-full min-w-[640px] table-fixed border-separate border-spacing-0 text-sm">
                     <colgroup>
                       <col style={{ width: "7%" }} />
                       <col style={{ width: "20%" }} />

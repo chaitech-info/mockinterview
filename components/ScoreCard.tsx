@@ -43,8 +43,15 @@ export function ScoreCard({
     >
       <CardContent className="p-5">
         <div className="text-sm font-medium text-muted-foreground">{label}</div>
-        <div className="mt-3 flex items-baseline justify-between gap-4">
-          <div className={cn("inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ring-1", tone.bg, tone.text, tone.ring)}>
+        <div className="mt-3 flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+          <div
+            className={cn(
+              "inline-flex shrink-0 items-center rounded-full px-3 py-1 text-sm font-semibold ring-1",
+              tone.bg,
+              tone.text,
+              tone.ring
+            )}
+          >
             {score.toFixed(1)}/10
           </div>
           <div className="text-xs text-muted-foreground">Score</div>
