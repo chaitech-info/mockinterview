@@ -3,42 +3,57 @@
 @tailwind utilities;
 
 :root {
-  /* Notion-ish light theme (neutral + soft surfaces) */
-  --background: 0 0% 99%;
-  --foreground: 222.2 47% 11%;
+  /* Framer template palette (Dreelio-style: Bg White, Neutral 30, Beige, Stroke) */
+  --background: 20 20% 98%;
+  --foreground: 15 25% 9%;
 
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 15 25% 9%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
+  --popover-foreground: 15 25% 9%;
 
-  /* Black & white primary */
-  --primary: 222.2 47% 11%;
-  --primary-foreground: 210 40% 98%;
+  --primary: 15 25% 9%;
+  --primary-foreground: 40 20% 98%;
 
-  --secondary: 210 25% 96.5%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 25 18% 95%;
+  --secondary-foreground: 15 25% 9%;
 
-  --muted: 210 25% 96.5%;
-  --muted-foreground: 215 16% 44%;
+  --muted: 25 18% 95%;
+  --muted-foreground: 15 8% 42%;
 
-  --accent: 210 25% 96.5%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --accent: 25 22% 92%;
+  --accent-foreground: 15 25% 9%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 220 14% 90%;
-  --input: 220 14% 90%;
-  --ring: 222.2 47% 11%;
+  --border: 0 3% 89%;
+  --input: 0 3% 89%;
+  --ring: 15 25% 9%;
 
   --radius: 0.75rem;
+
+  /* Framer export reference */
+  --framer-stroke: 0 3% 89%;
+  --framer-beige-10: 30 14% 95%;
+  --framer-beige-20: 28 18% 92%;
+  --framer-blue-glow: 210 75% 88%;
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {
@@ -85,6 +100,32 @@
   }
 }
 
+@keyframes orb-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(2%, -3%) scale(1.05);
+    opacity: 0.75;
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateX(200%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
 @layer utilities {
   .animate-wave {
     transform-origin: bottom;
@@ -106,6 +147,19 @@
   .animate-float-soft {
     animation: float-soft 5.5s ease-in-out infinite;
   }
+
+  .animate-orb-drift {
+    animation: orb-drift 18s ease-in-out infinite;
+  }
+
+  .animate-orb-drift-delayed {
+    animation: orb-drift 22s ease-in-out infinite;
+    animation-delay: -6s;
+  }
+
+  .animate-shimmer-slow {
+    animation: shimmer-sweep 14s ease-in-out infinite;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -113,7 +167,10 @@
   .animate-fade-up,
   .animate-fade-up-delayed,
   .animate-fade-up-delayed2,
-  .animate-float-soft {
+  .animate-float-soft,
+  .animate-orb-drift,
+  .animate-orb-drift-delayed,
+  .animate-shimmer-slow {
     animation: none !important;
   }
 }
