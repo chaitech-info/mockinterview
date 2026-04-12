@@ -130,7 +130,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
+      <main className="mx-auto w-full min-w-0 max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background shadow-sm">
@@ -199,28 +199,32 @@ export default function DashboardPage() {
               </Card>
             ) : (
               <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] border-collapse text-sm">
+                <div className="w-full min-w-0">
+                  <table className="w-full table-fixed border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <th className="px-4 py-3 font-medium">Updated</th>
-                        <th className="px-4 py-3 font-medium">Status</th>
-                        <th className="px-4 py-3 font-medium">Questions</th>
-                        <th className="px-4 py-3 font-medium">Avg score</th>
-                        <th className="min-w-[200px] px-4 py-3 font-medium">Job (preview)</th>
-                        <th className="px-4 py-3 font-medium text-right">Actions</th>
+                        <th className="w-[14%] px-3 py-3 font-medium sm:px-4">Updated</th>
+                        <th className="w-[10%] px-3 py-3 font-medium sm:px-4">Status</th>
+                        <th className="w-[8%] px-3 py-3 font-medium sm:px-4">Questions</th>
+                        <th className="w-[10%] px-3 py-3 font-medium sm:px-4">Avg score</th>
+                        <th className="min-w-0 w-[40%] px-3 py-3 font-medium sm:px-4">
+                          Job (preview)
+                        </th>
+                        <th className="w-[18%] px-3 py-3 font-medium text-right sm:px-4">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {sessions.map((s) => (
                         <tr key={s.session_id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                          <td className="whitespace-nowrap px-4 py-3 align-top text-muted-foreground">
+                          <td className="px-3 py-3 align-top text-muted-foreground sm:px-4">
                             <span className="inline-flex items-center gap-1.5">
                               <Calendar className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                              {formatWhen(s.updated_at)}
+                              <span className="leading-snug">{formatWhen(s.updated_at)}</span>
                             </span>
                           </td>
-                          <td className="px-4 py-3 align-top">
+                          <td className="px-3 py-3 align-top sm:px-4">
                             <Badge
                               variant={s.status === "completed" ? "default" : "outline"}
                               className={
@@ -232,17 +236,20 @@ export default function DashboardPage() {
                               {s.status === "completed" ? "Completed" : "Active"}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 align-top tabular-nums">{s.question_count}</td>
-                          <td className="px-4 py-3 align-top tabular-nums">
+                          <td className="px-3 py-3 align-top tabular-nums sm:px-4">{s.question_count}</td>
+                          <td className="px-3 py-3 align-top tabular-nums sm:px-4">
                             {s.avg_score != null ? `${s.avg_score.toFixed(1)} / 10` : "—"}
                           </td>
-                          <td className="max-w-[280px] px-4 py-3 align-top text-muted-foreground">
-                            <span className="line-clamp-2 break-words" title={s.jd_preview ?? undefined}>
+                          <td className="min-w-0 px-3 py-3 align-top text-muted-foreground sm:px-4">
+                            <span
+                              className="line-clamp-3 block max-w-full [overflow-wrap:anywhere] break-words leading-relaxed"
+                              title={s.jd_preview ?? undefined}
+                            >
                               {s.jd_preview ?? "—"}
                             </span>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 align-top text-right">
-                            <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
+                          <td className="min-w-0 px-3 py-3 align-top text-right sm:px-4">
+                            <div className="flex flex-col items-end gap-2">
                               {s.status === "active" &&
                               countUnansweredPlayable(s.questions, s.question_scores, fullBankUnlocked) >
                                 0 ? (
