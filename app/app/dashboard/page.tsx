@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { track } from "@/lib/firebase/client";
 import { signInWithGoogle } from "@/lib/supabase/auth";
+import { hasFullQuestionBankAccess } from "@/lib/entitlements/full-bank-access";
 import { countUnansweredPlayable } from "@/lib/interview/playable-unanswered";
 import type { InterviewSessionSummary } from "@/lib/supabase/interview-session";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
@@ -30,7 +31,7 @@ export default function DashboardPage() {
   /** False until the first list fetch finishes for the current `userId` (avoids a one-frame "ready" with no data). */
   const [sessionsListReady, setSessionsListReady] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const [hasPurchased, setHasPurchased] = React.useState(false);
+  const [fullBankUnlocked, setFullBankUnlocked] = React.useState(false);
 
   const userId = auth.status === "signed_in" ? auth.user.id : null;
 
@@ -40,18 +41,22 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     if (!userId) {
-      setHasPurchased(false);
+      setFullBankUnlocked(false);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
         const r = await fetch("/api/entitlements", { credentials: "include" });
-        const data = (await r.json()) as { ok?: boolean; hasPurchased?: boolean };
-        if (!cancelled && data.ok && data.hasPurchased) setHasPurchased(true);
-        else if (!cancelled) setHasPurchased(false);
+        const data = (await r.json()) as {
+          ok?: boolean;
+          hasPurchased?: boolean;
+          maxQuestionsPerInterview?: number | null;
+        };
+        if (!cancelled && data.ok && hasFullQuestionBankAccess(data)) setFullBankUnlocked(true);
+        else if (!cancelled) setFullBankUnlocked(false);
       } catch {
-        if (!cancelled) setHasPurchased(false);
+        if (!cancelled) setFullBankUnlocked(false);
       }
     })();
     return () => {
@@ -239,7 +244,7 @@ export default function DashboardPage() {
                           <td className="whitespace-nowrap px-4 py-3 align-top text-right">
                             <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
                               {s.status === "active" &&
-                              countUnansweredPlayable(s.questions, s.question_scores, hasPurchased) >
+                              countUnansweredPlayable(s.questions, s.question_scores, fullBankUnlocked) >
                                 0 ? (
                                 <Button asChild size="sm">
                                   <Link

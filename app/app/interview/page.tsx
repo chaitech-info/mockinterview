@@ -34,6 +34,7 @@ import {
 import { getCurrentUser } from "@/lib/supabase/get-current-user";
 import { signInWithGoogle } from "@/lib/supabase/auth";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { hasFullQuestionBankAccess } from "@/lib/entitlements/full-bank-access";
 import { LIMITED_INTERVIEW_QUESTIONS } from "@/lib/entitlements/plan";
 
 type Phase = "idle" | "recording" | "thinking" | "feedback";
@@ -139,8 +140,12 @@ function InterviewPageInner() {
     void (async () => {
       try {
         const r = await fetch("/api/entitlements", { credentials: "include" });
-        const data = (await r.json()) as { ok?: boolean; hasPurchased?: boolean };
-        if (cancelled || !data.ok || !data.hasPurchased) return;
+        const data = (await r.json()) as {
+          ok?: boolean;
+          hasPurchased?: boolean;
+          maxQuestionsPerInterview?: number | null;
+        };
+        if (cancelled || !data.ok || !hasFullQuestionBankAccess(data)) return;
         applyPurchasedUnlock(false);
       } catch {
         // ignore
@@ -157,8 +162,12 @@ function InterviewPageInner() {
       void (async () => {
         try {
           const r = await fetch("/api/entitlements", { credentials: "include" });
-          const data = (await r.json()) as { ok?: boolean; hasPurchased?: boolean };
-          if (!data.ok || !data.hasPurchased) return;
+          const data = (await r.json()) as {
+            ok?: boolean;
+            hasPurchased?: boolean;
+            maxQuestionsPerInterview?: number | null;
+          };
+          if (!data.ok || !hasFullQuestionBankAccess(data)) return;
           applyPurchasedUnlock(true);
         } catch {
           // ignore
@@ -262,17 +271,21 @@ function InterviewPageInner() {
           return;
         }
 
-        let hasPurchased = false;
+        let fullBank = false;
         try {
           const er = await fetch("/api/entitlements", { credentials: "include" });
-          const ed = (await er.json()) as { ok?: boolean; hasPurchased?: boolean };
-          if (ed.ok && ed.hasPurchased) hasPurchased = true;
+          const ed = (await er.json()) as {
+            ok?: boolean;
+            hasPurchased?: boolean;
+            maxQuestionsPerInterview?: number | null;
+          };
+          if (ed.ok && hasFullQuestionBankAccess(ed)) fullBank = true;
         } catch {
           /* ignore */
         }
 
         const bank = mapApiToUiQuestions(apiQuestions);
-        const pc = playableQuestionCount(bank.length, hasPurchased);
+        const pc = playableQuestionCount(bank.length, fullBank);
         const storedScores = Array.isArray(row.question_scores) ? row.question_scores : [];
         const answeredIds = new Set(storedScores.map((s) => s.id));
         const firstGap = firstUnansweredPlayableIndex(bank.map((q) => q.id), pc, answeredIds);
@@ -478,17 +491,6 @@ function InterviewPageInner() {
         saveReportSnapshot(
           buildReportSnapshotFromInterview(sessionId, questions, scoreRowsRef.current)
         );
-      }
-
-      const orderedIds = bankQuestions.map((q) => q.id);
-      const answered = new Set(scoreRowsRef.current.map((r) => r.id));
-      const firstGap = firstUnansweredPlayableIndex(orderedIds, playableCount, answered);
-
-      if (firstGap !== null) {
-        void track("interview_resume_skipped", { toIndex: firstGap });
-        setCurrentIdx(firstGap);
-        setPhase("idle");
-        return;
       }
 
       void track("interview_finish_session");

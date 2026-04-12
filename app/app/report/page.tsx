@@ -26,6 +26,7 @@ import { buildReportViewModel, type ReportViewModel } from "@/lib/report/from-se
 import { buildReportPdfModel, downloadReportPdf } from "@/lib/report/generate-report-pdf";
 import type { ReportSnapshot } from "@/lib/report-snapshot";
 import { loadReportSnapshot } from "@/lib/report-snapshot";
+import { hasFullQuestionBankAccess } from "@/lib/entitlements/full-bank-access";
 import { countUnansweredPlayable } from "@/lib/interview/playable-unanswered";
 import type { ApiQuestion } from "@/lib/session-store";
 import { loadActiveSession } from "@/lib/session-store";
@@ -103,22 +104,26 @@ function ReportPageInner() {
 
   const [downloading, setDownloading] = React.useState(false);
   const [loadedSession, setLoadedSession] = React.useState<InterviewSessionRow | null>(null);
-  const [hasPurchased, setHasPurchased] = React.useState(false);
+  const [fullBankUnlocked, setFullBankUnlocked] = React.useState(false);
 
   React.useEffect(() => {
     if (auth.status !== "signed_in") {
-      setHasPurchased(false);
+      setFullBankUnlocked(false);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
         const r = await fetch("/api/entitlements", { credentials: "include" });
-        const d = (await r.json()) as { ok?: boolean; hasPurchased?: boolean };
-        if (!cancelled && d.ok && d.hasPurchased) setHasPurchased(true);
-        else if (!cancelled) setHasPurchased(false);
+        const d = (await r.json()) as {
+          ok?: boolean;
+          hasPurchased?: boolean;
+          maxQuestionsPerInterview?: number | null;
+        };
+        if (!cancelled && d.ok && hasFullQuestionBankAccess(d)) setFullBankUnlocked(true);
+        else if (!cancelled) setFullBankUnlocked(false);
       } catch {
-        if (!cancelled) setHasPurchased(false);
+        if (!cancelled) setFullBankUnlocked(false);
       }
     })();
     return () => {
@@ -377,7 +382,7 @@ function ReportPageInner() {
   const showContinueInterview =
     Boolean(sessionId) &&
     loadedSession?.status === "active" &&
-    countUnansweredPlayable(sessionQuestions, sessionScores, hasPurchased) > 0;
+    countUnansweredPlayable(sessionQuestions, sessionScores, fullBankUnlocked) > 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
