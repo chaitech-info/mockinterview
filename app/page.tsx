@@ -401,7 +401,7 @@ export default function Home() {
             <div className="rounded-[32px] border border-[#e4e2e2] bg-white/70 p-8 shadow-sm backdrop-blur-md sm:p-10">
             <div className="flex flex-col gap-10 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex max-w-xs flex-col gap-4">
-                <div className="flex items-center gap-3">
+                <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-90">
                   <Image
                     src="/logo.jpeg"
                     alt=""
@@ -413,7 +413,7 @@ export default function Home() {
                     <div className="text-sm font-semibold">Mock Interview</div>
                     <div className="text-xs text-muted-foreground">AI-powered interview coach</div>
                   </div>
-                </div>
+                </Link>
               </div>
 
               <div className="grid gap-10 sm:grid-cols-2">
@@ -422,15 +422,15 @@ export default function Home() {
                     Pages
                   </p>
                   <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-                    <a className="transition-colors hover:text-foreground" href="/">
+                    <Link className="transition-colors hover:text-foreground" href="/">
                       Home
-                    </a>
-                    <a className="transition-colors hover:text-foreground" href="#features">
+                    </Link>
+                    <Link className="transition-colors hover:text-foreground" href="/#features">
                       Features
-                    </a>
-                    <a className="transition-colors hover:text-foreground" href="#pricing">
+                    </Link>
+                    <Link className="transition-colors hover:text-foreground" href="/#pricing">
                       Pricing
-                    </a>
+                    </Link>
                     <Link className="transition-colors hover:text-foreground" href="/app/dashboard">
                       Dashboard
                     </Link>
@@ -441,15 +441,15 @@ export default function Home() {
                     Information
                   </p>
                   <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-                    <a className="transition-colors hover:text-foreground" href="#">
+                    <Link className="transition-colors hover:text-foreground" href="/privacy">
                       Privacy
-                    </a>
-                    <a className="transition-colors hover:text-foreground" href="#">
+                    </Link>
+                    <Link className="transition-colors hover:text-foreground" href="/terms">
                       Terms
-                    </a>
-                    <a className="transition-colors hover:text-foreground" href="#">
+                    </Link>
+                    <Link className="transition-colors hover:text-foreground" href="/contact">
                       Contact
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>

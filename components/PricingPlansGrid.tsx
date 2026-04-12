@@ -112,6 +112,10 @@ export function PricingPlansGrid({
         ? "grid gap-4 sm:gap-6 md:grid-cols-2"
         : "grid gap-4 sm:gap-6";
 
+  const gridLayoutClass = loading
+    ? cn("grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3", gridClassName)
+    : cn(colClass, gridClassName);
+
   return (
     <div className={cn(className)}>
       {error && !loading ? (
@@ -123,7 +127,13 @@ export function PricingPlansGrid({
         </MoveInView>
       ) : null}
 
-      <div className={cn(colClass, gridClassName)}>
+      {loading ? (
+        <p className="mb-4 text-sm text-muted-foreground" role="status" aria-live="polite">
+          Loading plans and prices…
+        </p>
+      ) : null}
+
+      <div className={gridLayoutClass}>
         <MoveInView from="bottom" delayMs={0} withScale>
           <PricingCard
             title="Free"
@@ -140,18 +150,44 @@ export function PricingPlansGrid({
         </MoveInView>
 
         {loading
-          ? [0, 1].map((i) => (
+          ? [0, 1, 2].map((i) => (
               <MoveInView key={i} from="bottom" delayMs={90 + i * 100} withScale>
-                <Card className="h-full animate-pulse border-border">
-                  <CardContent className="p-6">
-                    <div className="h-5 w-24 rounded bg-muted" />
-                    <div className="mt-4 h-10 w-32 rounded bg-muted" />
-                    <div className="mt-6 space-y-2">
-                      <div className="h-4 w-full rounded bg-muted" />
-                      <div className="h-4 w-full rounded bg-muted" />
-                      <div className="h-4 w-11/12 rounded bg-muted" />
+                <Card
+                  className={cn(
+                    "h-full overflow-hidden rounded-3xl border border-[#e4e2e2] bg-white/80 shadow-[0_8px_40px_-16px_rgba(26,22,21,0.08)] backdrop-blur-sm"
+                  )}
+                  aria-hidden
+                >
+                  <CardContent className="space-y-5 p-6">
+                    <div className="h-5 w-32 animate-pulse rounded-lg bg-[#e4e2e2]/95" />
+                    <div className="flex items-end gap-2 pt-0.5">
+                      <div className="h-10 w-28 animate-pulse rounded-lg bg-[#e4e2e2]/90" />
+                      <div
+                        className="mb-1 h-3.5 w-14 animate-pulse rounded-full bg-[#dcd8d4]"
+                        style={{ animationDelay: `${i * 80}ms` }}
+                      />
                     </div>
-                    <div className="mt-8 h-10 w-full rounded bg-muted" />
+                    <div className="space-y-3 border-t border-[#e4e2e2]/60 pt-4">
+                      {[0, 1, 2, 3, 4].map((row) => (
+                        <div key={row} className="flex items-start gap-2.5">
+                          <div
+                            className="mt-0.5 h-4 w-4 shrink-0 animate-pulse rounded-full bg-[#e4e2e2]/85"
+                            style={{ animationDelay: `${(i * 5 + row) * 60}ms` }}
+                          />
+                          <div
+                            className={cn(
+                              "h-3.5 animate-pulse rounded-full bg-[#e4e2e2]/75",
+                              row === 2 ? "w-[82%]" : "w-full"
+                            )}
+                            style={{ animationDelay: `${(i * 5 + row) * 60 + 40}ms` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div
+                      className="h-11 w-full animate-pulse rounded-full bg-[#e4e2e2]/80"
+                      style={{ animationDelay: `${120 + i * 100}ms` }}
+                    />
                   </CardContent>
                 </Card>
               </MoveInView>
