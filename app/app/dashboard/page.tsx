@@ -130,7 +130,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="mx-auto w-full min-w-0 max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
+      <main className="mx-auto w-full min-w-0 max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 sm:py-10">
         <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background shadow-sm">
@@ -203,14 +203,14 @@ export default function DashboardPage() {
                   <table className="w-full table-fixed border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <th className="w-[14%] px-3 py-3 font-medium sm:px-4">Updated</th>
-                        <th className="w-[10%] px-3 py-3 font-medium sm:px-4">Status</th>
-                        <th className="w-[8%] px-3 py-3 font-medium sm:px-4">Questions</th>
-                        <th className="w-[10%] px-3 py-3 font-medium sm:px-4">Avg score</th>
-                        <th className="min-w-0 w-[40%] px-3 py-3 font-medium sm:px-4">
+                        <th className="w-[12%] px-3 py-3 font-medium sm:px-4">Updated</th>
+                        <th className="w-[9%] px-3 py-3 font-medium sm:px-4">Status</th>
+                        <th className="w-[7%] px-3 py-3 font-medium sm:px-4">Questions</th>
+                        <th className="w-[9%] px-3 py-3 font-medium sm:px-4">Avg score</th>
+                        <th className="min-w-0 w-[48%] px-3 py-3 font-medium sm:px-4">
                           Job (preview)
                         </th>
-                        <th className="w-[18%] px-3 py-3 font-medium text-right sm:px-4">
+                        <th className="w-[15%] px-3 py-3 font-medium text-right sm:px-4">
                           Actions
                         </th>
                       </tr>
