@@ -17,6 +17,7 @@ import {
 
 import { AuthButton } from "@/components/AuthButton";
 import { MoveIn, MoveInView } from "@/components/EntranceMotion";
+import { LandingHeroVideo } from "@/components/LandingHeroVideo";
 import { PricingSection } from "@/components/PricingSection";
 import { useAuthSession } from "@/lib/supabase/use-auth-session";
 import { Waveform } from "@/components/Waveform";
@@ -255,7 +256,7 @@ export default function Home() {
                 </MoveIn>
 
                 <MoveIn from="bottom" delayMs={400} durationMs={760}>
-                  <div className="flex flex-col items-center gap-3 pt-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:justify-center">
+                  <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:justify-center">
                     <div className="font-medium text-foreground">Trusted by 1,200+ job seekers</div>
                     <AvatarStack />
                     <div className="flex items-center gap-1">
@@ -265,6 +266,10 @@ export default function Home() {
                     </div>
                   </div>
                 </MoveIn>
+              </div>
+
+              <div className="-mt-6 w-full max-w-[1072px] md:-mt-10">
+                <LandingHeroVideo />
               </div>
 
               <div className="w-full max-w-[1072px]">
