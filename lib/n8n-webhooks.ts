@@ -4,10 +4,10 @@
  */
 
 const DEFAULT_INTAKE_WEBHOOK_URL =
-  "https://n8n.srv851223.hstgr.cloud/webhook-test/intake";
+  "https://ni0n408t.rpcl.app/webhook/intake";
 
 const DEFAULT_ANSWER_WEBHOOK_URL =
-  "https://n8n.srv851223.hstgr.cloud/webhook-test/answer";
+  "https://ni0n408t.rpcl.app/webhook/answer";
 
 export function getIntakeWebhookUrl(): string {
   return process.env.NEXT_PUBLIC_N8N_INTAKE_WEBHOOK_URL?.trim() || DEFAULT_INTAKE_WEBHOOK_URL;
