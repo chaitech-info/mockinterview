@@ -1,6 +1,6 @@
 import type { ApiQuestion } from "@/lib/session-store";
 import type { QuestionCategory } from "@/lib/mock-data";
-import type { StoredQuestionScore } from "@/lib/supabase/interview-session";
+import type { StoredQuestionScore } from "@/lib/sessions/interview-session";
 
 export type ReportViewModel = {
   grade: string;

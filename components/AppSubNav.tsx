@@ -5,8 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { isAuthConfigured } from "@/lib/auth/actions";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import { cn } from "@/lib/utils";
 
 const linkBase =
@@ -40,7 +40,7 @@ export function AppSubNav() {
   const [creditsLoading, setCreditsLoading] = React.useState(false);
 
   React.useEffect(() => {
-    if (!isSupabaseConfigured()) {
+    if (!isAuthConfigured()) {
       setCredits(null);
       setCreditsLoading(false);
       return;
@@ -138,7 +138,7 @@ export function AppSubNav() {
             >
               Profile
             </Link>
-            {auth.status === "signed_in" && isSupabaseConfigured() ? (
+            {auth.status === "signed_in" && isAuthConfigured() ? (
               creditsLoading ? (
                 <span
                   className="inline-flex max-w-full shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-full border border-[#e4e2e2] bg-[#faf8f6] px-3 py-2 text-xs font-semibold shadow-sm"

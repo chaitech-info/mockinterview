@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { query } from "@/lib/db/server";
 
 export const runtime = "nodejs";
 
 /**
  * POST { "email": "user@example.com" } → { ok: true, exists: boolean }
- * Uses service role + auth_email_registered RPC. Call only from trusted UI; rate-limit in production.
+ * Call only from trusted UI; rate-limit in production (account enumeration risk).
  */
 export async function POST(request: Request) {
-  const admin = createSupabaseAdmin();
-  if (!admin) {
-    return NextResponse.json({ ok: false, error: "Server misconfigured" }, { status: 503 });
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -27,10 +22,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid email" }, { status: 400 });
   }
 
-  const { data, error } = await admin.rpc("auth_email_registered", { p_email: email });
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  try {
+    const rows = await query(
+      `select 1 from neon_auth."user" where lower(trim(email)) = lower(trim($1)) limit 1`,
+      [email]
+    );
+    return NextResponse.json({ ok: true, exists: rows.length > 0 });
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : "Lookup failed" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ ok: true, exists: Boolean(data) });
 }

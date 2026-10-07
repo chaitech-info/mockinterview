@@ -11,13 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { track } from "@/lib/firebase/client";
 import { getIntakeWebhookUrl } from "@/lib/n8n-webhooks";
-import { getCurrentUser } from "@/lib/supabase/get-current-user";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { signInWithGoogle } from "@/lib/supabase/auth";
-import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getApiToken } from "@/lib/auth/token";
+import { isAuthConfigured } from "@/lib/auth/actions";
+import { signInWithGoogle } from "@/lib/auth/actions";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import type { IntakeResponse } from "@/lib/session-store";
 import { clearActiveSession, saveActiveSession } from "@/lib/session-store";
-import { upsertInterviewSessionFromIntake } from "@/lib/supabase/interview-session";
 import {
   appFlowMainClassName,
   appFlowPrimaryButtonClass,
@@ -62,7 +62,7 @@ export default function IntakePage() {
       setInterviewCreditsLoading(false);
       return;
     }
-    if (!isSupabaseConfigured()) {
+    if (!isAuthConfigured()) {
       setInterviewCredits(null);
       setInterviewCreditsLoading(false);
       return;
@@ -167,7 +167,7 @@ export default function IntakePage() {
     try {
       user = await getCurrentUser();
     } catch {
-      setError("Sign-in is not configured on this deployment (Supabase env missing).");
+      setError("Sign-in is not configured on this deployment (Neon Auth env missing).");
       setPhase("error");
       return;
     }
@@ -179,75 +179,35 @@ export default function IntakePage() {
 
     try {
       clearActiveSession();
+      const token = await getApiToken();
+      if (!token) throw new Error("You are signed out. Please sign in again.");
+
+      // The backend generates the question bank and saves the session for this user.
       const res = await fetch(getIntakeWebhookUrl(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          jd_text: jdText,
+          jd_text: jdText.trim(),
           user_id: user.id,
           user_email: user.email ?? "",
         }),
       });
 
-      if (!res.ok) throw new Error(`Intake failed (${res.status})`);
-
-      const json = (await res.json()) as IntakeResponse;
-      if (!json?.success || !json.session_id || !Array.isArray(json.questions)) {
-        throw new Error("Unexpected intake response");
-      }
-
-      const regRes = await fetch("/api/intake/register-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(json),
-      });
-
-      const regJson = (await regRes.json()) as {
-        ok?: boolean;
-        intake?: IntakeResponse;
-        error?: string;
-        message?: string;
-        plan?: string;
-        interviewCredits?: number;
-      };
-
-      if (!regRes.ok || !regJson.ok || !regJson.intake) {
-        if (regRes.status === 403 && regJson.error === "quota_exceeded") {
-          setQuotaExceeded(true);
-          setError(
-            regJson.message ??
-              "You have no interview credits left. Purchase a credit pack to start a new mock interview."
-          );
-          void track("intake_quota_exceeded", { plan: regJson.plan });
-          setPhase("error");
-          return;
-        }
-        const hint =
-          typeof regJson.error === "string"
-            ? regJson.error
-            : `Could not start session (${regRes.status})`;
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
         throw new Error(
-          "hint" in regJson && typeof (regJson as { hint?: string }).hint === "string"
-            ? `${hint}. ${(regJson as { hint: string }).hint}`
-            : hint
+          typeof body?.detail === "string" ? body.detail : `Intake failed (${res.status})`
         );
       }
 
-      const intake = regJson.intake;
-      if (typeof regJson.interviewCredits === "number") {
-        setInterviewCredits(regJson.interviewCredits);
+      const intake = (await res.json()) as IntakeResponse;
+      if (!intake?.success || !intake.session_id || !Array.isArray(intake.questions)) {
+        throw new Error("Unexpected intake response");
       }
+
       setResult(intake);
       saveActiveSession(intake);
-      const { error: saveErr } = await upsertInterviewSessionFromIntake({
-        userId: user.id,
-        jdText: jdText.trim(),
-        intake,
-      });
-      if (saveErr) {
-        console.warn("[PrepAI] Could not save session to Supabase:", saveErr.message);
-      }
-      void track("intake_analysis_complete", { sessionId: intake.session_id, plan: regJson.plan });
+      void track("intake_analysis_complete", { sessionId: intake.session_id });
       setPhase("results");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -260,7 +220,7 @@ export default function IntakePage() {
     <div className={intakePageShell}>
       <Stepper currentStep={1} />
 
-      {auth.status === "signed_in" && isSupabaseConfigured() ? (
+      {auth.status === "signed_in" && isAuthConfigured() ? (
         interviewCreditsLoading ? (
           <p
             className="mt-5 inline-flex items-center rounded-full border border-[#e4e2e2] bg-white/80 px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur-sm"

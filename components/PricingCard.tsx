@@ -10,9 +10,9 @@ import {
   type PaddleCheckoutEnvironment,
   type PaddleKeyMode,
 } from "@/lib/paddle/checkout";
-import { getCurrentUser } from "@/lib/supabase/get-current-user";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { signInWithGoogle } from "@/lib/supabase/auth";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { isAuthConfigured } from "@/lib/auth/actions";
+import { signInWithGoogle } from "@/lib/auth/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,7 +63,7 @@ export function PricingCard({
     try {
       const merged: Record<string, unknown> = { ...(checkoutCustomData ?? {}) };
 
-      if (isSupabaseConfigured()) {
+      if (isAuthConfigured()) {
         const user = await getCurrentUser();
         if (!user) {
           window.alert(

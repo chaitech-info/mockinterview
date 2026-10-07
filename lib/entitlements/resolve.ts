@@ -1,9 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import {
   type BillingPlan,
   maxQuestionsForPlan,
 } from "@/lib/entitlements/plan";
+import { query } from "@/lib/db/server";
 
 export type EntitlementsPayload = {
   plan: BillingPlan;
@@ -24,42 +23,24 @@ function normalizePlan(raw: string | null | undefined): BillingPlan {
   return "free";
 }
 
-export async function getEntitlementsForUser(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<EntitlementsPayload> {
-  await supabase.rpc("ensure_user_entitlements");
-
-  const { data: profileRow, error: profileError } = await supabase
-    .from("profiles")
-    .select("interview_credits, has_purchased")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
-
-  const { data: entRow, error: entError } = await supabase
-    .from("user_entitlements")
-    .select("plan")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (entError) {
-    throw new Error(entError.message);
-  }
-
-  const plan = normalizePlan(entRow?.plan as string | undefined);
-  const credits =
-    typeof profileRow?.interview_credits === "number" ? profileRow.interview_credits : 0;
+export async function getEntitlementsForUser(userId: string): Promise<EntitlementsPayload> {
+  const rows = await query<{ interview_credits: number; has_purchased: boolean; plan: string | null }>(
+    `select p.interview_credits, p.has_purchased, e.plan
+       from profiles p
+       left join user_entitlements e on e.user_id = p.id
+      where p.id = $1::uuid`,
+    [userId]
+  );
+  const row = rows[0];
+  const plan = normalizePlan(row?.plan);
+  const credits = typeof row?.interview_credits === "number" ? row.interview_credits : 0;
 
   return {
     plan,
     interviewCredits: credits,
     canStartNewInterview: credits > 0,
     maxQuestionsPerInterview: maxQuestionsForPlan(plan),
-    hasPurchased: profileRow?.has_purchased === true,
+    hasPurchased: row?.has_purchased === true,
     interviewsUsedThisMonth: 0,
     interviewsAllowedThisMonth: 0,
   };

@@ -30,10 +30,10 @@ import {
   updateInterviewSessionScores,
   type InterviewSessionRow,
   type StoredQuestionScore,
-} from "@/lib/supabase/interview-session";
-import { getCurrentUser } from "@/lib/supabase/get-current-user";
-import { signInWithGoogle } from "@/lib/supabase/auth";
-import { useAuthSession } from "@/lib/supabase/use-auth-session";
+} from "@/lib/sessions/interview-session";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { signInWithGoogle } from "@/lib/auth/actions";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import { hasFullQuestionBankAccess } from "@/lib/entitlements/full-bank-access";
 import { LIMITED_INTERVIEW_QUESTIONS } from "@/lib/entitlements/plan";
 import {
@@ -471,7 +471,7 @@ function InterviewPageInner() {
     try {
       user = await getCurrentUser();
     } catch {
-      setSubmitError("Sign-in is not available (check Supabase env on this deployment).");
+      setSubmitError("Sign-in is not available (check Neon Auth env on this deployment).");
       setPhase("idle");
       return;
     }

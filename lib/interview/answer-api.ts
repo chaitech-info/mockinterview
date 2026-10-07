@@ -1,3 +1,4 @@
+import { getApiToken } from "@/lib/auth/token";
 import { getAnswerWebhookUrl } from "@/lib/n8n-webhooks";
 
 export { getAnswerWebhookUrl };
@@ -188,14 +189,25 @@ export async function submitAnswerMultipart(params: {
   form.append("session_id", params.sessionId);
   form.append("question_id", String(params.questionId));
 
+  const token = await getApiToken();
+  if (!token) throw new Error("You are signed out. Please sign in again.");
+
   const res = await fetch(getAnswerWebhookUrl(), {
     method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
     body: form,
   });
 
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(text || `Answer request failed (${res.status})`);
+    let detail = "";
+    try {
+      const j = JSON.parse(text) as { detail?: unknown };
+      if (typeof j.detail === "string") detail = j.detail;
+    } catch {
+      // not JSON
+    }
+    throw new Error(detail || text || `Answer request failed (${res.status})`);
   }
 
   let json: unknown;

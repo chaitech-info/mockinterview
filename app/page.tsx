@@ -19,13 +19,13 @@ import { MoveIn, MoveInView } from "@/components/EntranceMotion";
 import { LandingNavBar } from "@/components/LandingNavBar";
 import { LandingHeroVideo } from "@/components/LandingHeroVideo";
 import { PricingSection } from "@/components/PricingSection";
-import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import { Waveform } from "@/components/Waveform";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { track } from "@/lib/firebase/client";
-import { signInWithGoogle } from "@/lib/supabase/auth";
+import { signInWithGoogle } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
 
 const HOW_IT_WORKS_STEPS = [

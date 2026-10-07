@@ -12,7 +12,7 @@ import {
 } from "@/lib/paddle/transaction-webhook";
 import { verifyPaddleWebhookSignature } from "@/lib/paddle/webhook-verify";
 import { sendPurchaseConfirmationEmail } from "@/lib/email/send-purchase-confirmation";
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { isDbConfigured, query } from "@/lib/db/server";
 
 export const runtime = "nodejs";
 
@@ -54,9 +54,8 @@ export async function POST(request: Request) {
   /** JSON:API-style `attributes` merged in for subscription + transaction entities. */
   const payload = flattenPaddleTransactionEntity(rawPayload);
 
-  const supabase = createSupabaseAdmin();
-  if (!supabase) {
-    console.error("[Paddle webhook] SUPABASE_SERVICE_ROLE_KEY or URL missing");
+  if (!isDbConfigured()) {
+    console.error("[Paddle webhook] DATABASE_URL missing");
     return NextResponse.json({ ok: false, error: "Database not configured" }, { status: 503 });
   }
 
@@ -75,16 +74,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, skipped: true, reason: "no_dedupe_id" });
     }
 
-    const { error: dedupeErr } = await supabase.from("paddle_processed_events").insert({ id: dedupeId });
-    if (dedupeErr) {
-      if (dedupeErr.code === "23505") {
+    try {
+      const inserted = await query(
+        "insert into paddle_processed_events (id) values ($1) on conflict (id) do nothing returning id",
+        [dedupeId]
+      );
+      if (inserted.length === 0) {
         return NextResponse.json({ ok: true, deduped: true, id: dedupeId });
       }
+    } catch (dedupeErr) {
       console.error("[Paddle webhook] dedupe insert failed", dedupeErr);
-      return NextResponse.json({ ok: false, error: dedupeErr.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: dedupeErr instanceof Error ? dedupeErr.message : "dedupe failed" },
+        { status: 500 }
+      );
     }
 
-    const resolvedUserId = await resolvePaddleUserId(supabase, payload);
+    const resolvedUserId = await resolvePaddleUserId(payload);
     const resolved = resolveCreditsFromTransaction(payload, resolvedUserId);
     if (!resolved.ok) {
       console.warn("[Paddle webhook] Transaction credits skipped", {
@@ -99,26 +105,29 @@ export async function POST(request: Request) {
       });
     }
 
-    const { error: grantErr } = await supabase.rpc("grant_purchase_credits", {
-      p_user_id: resolved.userId,
-      p_delta: resolved.credits,
-      p_plan: resolved.plan,
-    });
-
-    if (grantErr) {
+    try {
+      await query("select grant_purchase_credits($1::uuid, $2::int, $3)", [
+        resolved.userId,
+        resolved.credits,
+        resolved.plan,
+      ]);
+    } catch (grantErr) {
       console.error("[Paddle webhook] grant_purchase_credits failed", grantErr);
-      await supabase.from("paddle_processed_events").delete().eq("id", dedupeId);
-      return NextResponse.json({ ok: false, error: grantErr.message }, { status: 500 });
+      await query("delete from paddle_processed_events where id = $1", [dedupeId]).catch(() => undefined);
+      return NextResponse.json(
+        { ok: false, error: grantErr instanceof Error ? grantErr.message : "grant failed" },
+        { status: 500 }
+      );
     }
 
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("interview_credits, email")
-      .eq("id", resolved.userId)
-      .maybeSingle();
+    const [prof] = await query<{ interview_credits: number; email: string | null; auth_email: string | null }>(
+      `select p.interview_credits, p.email, u.email as auth_email
+         from profiles p left join neon_auth."user" u on u.id = p.id
+        where p.id = $1::uuid`,
+      [resolved.userId]
+    );
 
-    const { data: authUserData } = await supabase.auth.admin.getUserById(resolved.userId);
-    const toEmail = authUserData.user?.email ?? prof?.email ?? null;
+    const toEmail = prof?.auth_email ?? prof?.email ?? null;
     const newBalance =
       typeof prof?.interview_credits === "number" ? prof.interview_credits : resolved.credits;
     if (toEmail) {
@@ -142,7 +151,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true, event_type: eventType });
   }
 
-  const userId = await resolvePaddleUserId(supabase, payload);
+  const userId = await resolvePaddleUserId(payload);
   if (!userId) {
     console.warn(
       "[Paddle webhook] Could not resolve user — pass customData.email (or legacy supabase_user_id) from checkout."
@@ -170,28 +179,24 @@ export async function POST(request: Request) {
     });
   }
 
-  const { error } = await supabase.from("user_entitlements").upsert(
-    {
-      user_id: userId,
-      plan: resolved.plan,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" }
-  );
-
-  if (error) {
+  try {
+    await query(
+      `insert into user_entitlements (user_id, plan, updated_at) values ($1::uuid, $2, now())
+       on conflict (user_id) do update set plan = excluded.plan, updated_at = now()`,
+      [userId, resolved.plan]
+    );
+  } catch (error) {
     console.error("[Paddle webhook] user_entitlements upsert failed", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "upsert failed" },
+      { status: 500 }
+    );
   }
 
   if (resolved.plan !== "free") {
-    const { error: subPurchasedErr } = await supabase
-      .from("profiles")
-      .update({ has_purchased: true, updated_at: new Date().toISOString() })
-      .eq("id", userId);
-    if (subPurchasedErr) {
-      console.warn("[Paddle webhook] has_purchased update (subscription) failed", subPurchasedErr);
-    }
+    await query("update profiles set has_purchased = true, updated_at = now() where id = $1::uuid", [userId]).catch(
+      (e) => console.warn("[Paddle webhook] has_purchased update (subscription) failed", e)
+    );
   }
 
   return NextResponse.json({

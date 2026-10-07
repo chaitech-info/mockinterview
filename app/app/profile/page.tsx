@@ -7,10 +7,9 @@ import { Loader2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { track } from "@/lib/firebase/client";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { signInWithGoogle, signOut } from "@/lib/supabase/auth";
-import { getUserProfile } from "@/lib/supabase/user-profile";
-import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { signInWithGoogle, signOut } from "@/lib/auth/actions";
+import { getUserProfile } from "@/lib/auth/user-profile";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import { saveUser } from "@/lib/user-store";
 import {
   appFlowMainClassName,
@@ -58,7 +57,6 @@ export default function ProfilePage() {
       return;
     }
 
-    const supabase = getSupabaseClient();
     const user = auth.user;
     const profile = getUserProfile(user);
 
@@ -68,13 +66,6 @@ export default function ProfilePage() {
       name: profile.name,
       avatarUrl: profile.avatarUrl,
     });
-
-    void supabase.rpc("ensure_user_entitlements").then(
-      () => {},
-      () => {
-        /* migration / network */
-      }
-    );
 
     let cancelled = false;
     setCredits(null);
@@ -106,7 +97,7 @@ export default function ProfilePage() {
             <CardTitle className="text-lg font-semibold tracking-tight">Sign in unavailable</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Supabase is not configured on this deployment.
+            Sign-in is not configured on this deployment.
           </CardContent>
         </Card>
       </div>

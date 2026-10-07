@@ -1,21 +1,8 @@
 "use client";
 
-import type { AuthError } from "@supabase/supabase-js";
-
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth/client";
 
 const NEXT_KEY = "prepai_auth_next";
-
-/**
- * OAuth redirect must use your real public origin. Set NEXT_PUBLIC_SITE_URL in
- * Vercel (e.g. https://mockinterview.info) so Google sign-in returns there, not
- * localhost — Supabase also needs this URL in Authentication → Redirect URLs.
- */
-function oauthRedirectOrigin(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
-  if (fromEnv) return fromEnv;
-  return window.location.origin;
-}
 
 function safeNextPath(next?: string) {
   if (!next) return "/";
@@ -24,40 +11,28 @@ function safeNextPath(next?: string) {
   return next;
 }
 
-export async function signInWithGoogle(next?: string) {
-  let supabase;
-  try {
-    supabase = getSupabaseClient();
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return {
-      data: null,
-      error: { message: msg, name: "ConfigurationError" } as AuthError,
-    };
-  }
-  const nextPath = safeNextPath(next);
+/** Auth is always available once NEON_AUTH_BASE_URL is set on the server; kept for call-site parity. */
+export function isAuthConfigured(): boolean {
+  return true;
+}
 
+export async function signInWithGoogle(next?: string) {
+  const nextPath = safeNextPath(next);
   try {
     window.localStorage.setItem(NEXT_KEY, nextPath);
   } catch {
     // ignore
   }
-
-  const redirectTo = `${oauthRedirectOrigin()}/auth/callback?next=${encodeURIComponent(
-    nextPath
-  )}`;
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { data, error } = await authClient.signIn.social({
     provider: "google",
-    options: { redirectTo },
+    callbackURL: nextPath,
   });
   return { data, error };
 }
 
 export async function signOut() {
   try {
-    const supabase = getSupabaseClient();
-    return await supabase.auth.signOut();
+    return await authClient.signOut();
   } catch (e) {
     console.error("[PrepAI] signOut:", e);
   }
@@ -73,10 +48,7 @@ export function popNextPath(): string | null {
   }
 }
 
-/**
- * Server-backed check: whether this email already has an account (auth.users).
- * Returns null if the request failed (network / misconfiguration).
- */
+/** Server-backed check: does this email already have an account? null on failure. */
 export async function checkEmailRegistered(email: string): Promise<boolean | null> {
   const trimmed = email.trim();
   if (!trimmed) return null;
@@ -93,4 +65,3 @@ export async function checkEmailRegistered(email: string): Promise<boolean | nul
     return null;
   }
 }
-

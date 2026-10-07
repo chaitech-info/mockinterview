@@ -6,86 +6,44 @@ import { LogIn, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/firebase/client";
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { popNextPath, signInWithGoogle, signOut } from "@/lib/supabase/auth";
-import { getUserProfile } from "@/lib/supabase/user-profile";
-import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { popNextPath, signInWithGoogle, signOut } from "@/lib/auth/actions";
+import { getUserProfile } from "@/lib/auth/user-profile";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import { clearUser, saveUser } from "@/lib/user-store";
 
 export function AuthButton() {
   const auth = useAuthSession();
   const [authError, setAuthError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (auth.status !== "signed_in") return;
-
-    let supabase: ReturnType<typeof getSupabaseClient>;
-    try {
-      supabase = getSupabaseClient();
-    } catch {
-      return;
-    }
-
-    const user = auth.user;
-    const profile = getUserProfile(user);
-
-    void supabase.rpc("ensure_user_entitlements").then(
-      () => {},
-      () => {
-        /* migration may not be applied yet */
-      }
-    );
-
-    saveUser({
-      id: user.id,
-      email: profile.email,
-      name: profile.name,
-      avatarUrl: profile.avatarUrl,
-    });
-  }, [auth]);
+  const prevStatus = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    if (!isSupabaseConfigured()) return;
+    const prev = prevStatus.current;
+    prevStatus.current = auth.status;
 
-    let supabase: ReturnType<typeof getSupabaseClient>;
-    try {
-      supabase = getSupabaseClient();
-    } catch {
-      return;
-    }
-
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN") {
-        void track("auth_signed_in");
-        if (session?.user) {
-          void supabase.rpc("ensure_user_entitlements").then(
-            () => {},
-            () => {
-              /* migration may not be applied yet */
-            }
-          );
-          const profile = getUserProfile(session.user);
-          saveUser({
-            id: session.user.id,
-            email: profile.email,
-            name: profile.name,
-            avatarUrl: profile.avatarUrl,
-          });
-        }
+    if (auth.status === "signed_in") {
+      const profile = getUserProfile(auth.user);
+      saveUser({
+        id: auth.user.id,
+        email: profile.email,
+        name: profile.name,
+        avatarUrl: profile.avatarUrl,
+      });
+      if (prev !== "signed_in") {
+        // Just signed in (or returned from Google): continue to the page the user wanted.
         const stored = popNextPath();
-        if (stored && stored !== window.location.pathname + window.location.search) {
-          window.location.assign(stored);
+        if (stored) {
+          void track("auth_signed_in");
+          if (stored !== window.location.pathname + window.location.search) {
+            window.location.assign(stored);
+          }
         }
       }
-
-      if (event === "SIGNED_OUT") {
-        void track("auth_signed_out");
-        clearUser();
-      }
-    });
-
-    return () => data.subscription.unsubscribe();
-  }, []);
+    } else if (auth.status === "signed_out" && prev === "signed_in") {
+      void track("auth_signed_out");
+      clearUser();
+    }
+  }, [auth]);
 
   if (auth.status === "unconfigured") {
     return (
@@ -95,7 +53,7 @@ export function AuthButton() {
           Sign in
         </Button>
         <div className="max-w-[min(100%,280px)] text-xs text-muted-foreground">
-          Auth is not configured (missing Supabase env on this deployment).
+          Auth is not configured (missing Neon Auth env on this deployment).
         </div>
       </div>
     );
@@ -166,8 +124,9 @@ export function AuthButton() {
             : window.location.pathname + window.location.search;
           const { error } = await signInWithGoogle(nextPath);
           if (error) {
-            setAuthError(error.message);
-            void track("auth_sign_in_error", { message: error.message });
+            const message = error.message ?? "Sign-in failed";
+            setAuthError(message);
+            void track("auth_sign_in_error", { message });
           }
         }}
       >

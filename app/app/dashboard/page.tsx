@@ -15,11 +15,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { track } from "@/lib/firebase/client";
-import { signInWithGoogle } from "@/lib/supabase/auth";
+import { signInWithGoogle } from "@/lib/auth/actions";
 import { hasFullQuestionBankAccess } from "@/lib/entitlements/full-bank-access";
 import { countUnansweredPlayable } from "@/lib/interview/playable-unanswered";
-import type { InterviewSessionSummary } from "@/lib/supabase/interview-session";
-import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import type { InterviewSessionSummary } from "@/lib/sessions/interview-session";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import {
   appFlowPrimaryButtonClass,
   appFlowSecondaryPillClass,
@@ -244,7 +244,7 @@ export default function DashboardPage() {
 
   const configError =
     auth.status === "unconfigured"
-      ? "Supabase is not configured on this deployment."
+      ? "Sign-in is not configured on this deployment."
       : errorMessage;
 
   const showNewInterviewCta = auth.status === "signed_in" && phase !== "sign_in";

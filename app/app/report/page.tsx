@@ -30,10 +30,10 @@ import { hasFullQuestionBankAccess } from "@/lib/entitlements/full-bank-access";
 import { countUnansweredPlayable } from "@/lib/interview/playable-unanswered";
 import type { ApiQuestion } from "@/lib/session-store";
 import { loadActiveSession } from "@/lib/session-store";
-import type { InterviewSessionRow } from "@/lib/supabase/interview-session";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { signInWithGoogle } from "@/lib/supabase/auth";
-import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import type { InterviewSessionRow } from "@/lib/sessions/interview-session";
+import { isAuthConfigured } from "@/lib/auth/actions";
+import { signInWithGoogle } from "@/lib/auth/actions";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import {
   appFlowMainClassName,
   appFlowPrimaryButtonClass,
@@ -156,7 +156,7 @@ function ReportPageInner() {
     async function load() {
       if (!storageHydrated) return;
 
-      if (!isSupabaseConfigured()) {
+      if (!isAuthConfigured()) {
         if (!cancelled) setLoadedSession(null);
         if (!cancelled) {
           setUseMock(true);
@@ -385,11 +385,7 @@ function ReportPageInner() {
             <p className="text-xs leading-relaxed">
               If you just finished an interview, confirm the{" "}
               <code className="rounded-md border border-[#e4e2e2] bg-[#faf8f6] px-1.5 py-0.5">sessions</code>{" "}
-              table exists in Supabase (see{" "}
-              <code className="rounded-md border border-[#e4e2e2] bg-[#faf8f6] px-1.5 py-0.5">
-                supabase/migrations
-              </code>
-              ) and intake saved your session.
+              table exists in the database and intake saved your session.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button asChild className={appFlowPrimaryButtonClass}>
@@ -454,9 +450,9 @@ function ReportPageInner() {
 
       {useMock && !display ? (
         <p className="mt-5 rounded-2xl border border-[#e4e2e2] bg-white/60 px-4 py-3 text-sm text-muted-foreground backdrop-blur-sm">
-          Demo mode: Supabase is not configured. Set{" "}
+          Demo mode: no saved session was found. Check{" "}
           <code className="rounded-md border border-[#e4e2e2] bg-[#faf8f6] px-1.5 py-0.5 text-xs">
-            NEXT_PUBLIC_SUPABASE_*
+            NEON_AUTH_BASE_URL
           </code>{" "}
           and add the{" "}
           <code className="rounded-md border border-[#e4e2e2] bg-[#faf8f6] px-1.5 py-0.5 text-xs">

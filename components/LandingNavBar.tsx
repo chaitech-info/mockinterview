@@ -9,8 +9,8 @@ import { AuthButton } from "@/components/AuthButton";
 import { MoveIn } from "@/components/EntranceMotion";
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/firebase/client";
-import { signInWithGoogle } from "@/lib/supabase/auth";
-import { useAuthSession } from "@/lib/supabase/use-auth-session";
+import { signInWithGoogle } from "@/lib/auth/actions";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import { cn } from "@/lib/utils";
 
 const framerPillButtonPrimary =

@@ -1,6 +1,6 @@
 import { LIMITED_INTERVIEW_QUESTIONS } from "@/lib/entitlements/plan";
 import type { ApiQuestion } from "@/lib/session-store";
-import type { StoredQuestionScore } from "@/lib/supabase/interview-session";
+import type { StoredQuestionScore } from "@/lib/sessions/interview-session";
 
 export function playableQuestionCount(bankLength: number, hasPurchased: boolean): number {
   if (hasPurchased) return bankLength;

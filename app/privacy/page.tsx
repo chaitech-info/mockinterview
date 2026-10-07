@@ -73,8 +73,16 @@ export default function PrivacyPage() {
         </LegalParagraph>
         <LegalList>
           <li>
-            <strong className="text-foreground">Supabase</strong> — authentication and database hosting for
+            <strong className="text-foreground">Neon</strong> — authentication and database hosting for
             accounts and interview sessions.
+          </li>
+          <li>
+            <strong className="text-foreground">Modal</strong> — hosting of the backend that processes your
+            job description and recorded answers.
+          </li>
+          <li>
+            <strong className="text-foreground">OpenAI</strong> — speech-to-text transcription of your
+            recorded answers and AI generation of questions and feedback.
           </li>
           <li>
             <strong className="text-foreground">Google</strong> — OAuth sign-in when you choose “Sign in

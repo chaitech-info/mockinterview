@@ -1,38 +1,20 @@
 import { NextResponse } from "next/server";
 
+import { getAuthedUser } from "@/lib/auth/current-user";
 import { getEntitlementsForUser } from "@/lib/entitlements/resolve";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json(
-      { ok: false, error: "Supabase is not configured on the server." },
-      { status: 503 }
-    );
-  }
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const entitlements = await getEntitlementsForUser(supabase, user.id);
+    const user = await getAuthedUser();
+    if (!user) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const entitlements = await getEntitlementsForUser(user.id);
     return NextResponse.json({ ok: true, ...entitlements });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to load entitlements";
-    const hint =
-      message.includes("relation") && message.includes("does not exist")
-        ? "Apply Supabase migrations (including 20260408120000_profiles_interview_credits.sql) in your Supabase project."
-        : undefined;
-    return NextResponse.json(
-      { ok: false, error: message, ...(hint ? { hint } : {}) },
-      { status: 503 }
-    );
+    return NextResponse.json({ ok: false, error: message }, { status: 503 });
   }
 }

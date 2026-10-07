@@ -7,8 +7,7 @@ import { PricingCard } from "@/components/PricingCard";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PaddleCatalogItem } from "@/lib/paddle/catalog-map";
 import type { PaddleCheckoutEnvironment, PaddleKeyMode } from "@/lib/paddle/checkout";
-import { getCurrentUser } from "@/lib/supabase/get-current-user";
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { useAuthSession } from "@/lib/auth/use-auth-session";
 import { cn } from "@/lib/utils";
 
 type ApiResponse = {
@@ -38,39 +37,18 @@ export function PricingPlansGrid({
     Record<string, unknown> | undefined
   >();
 
-  /** Keep Paddle `customData.supabase_user_id` in sync whenever auth changes (e.g. sign-in on landing). */
+  const auth = useAuthSession();
+
+  /** Keep Paddle `customData` in sync whenever auth changes (e.g. sign-in on landing). */
   React.useEffect(() => {
-    if (!isSupabaseConfigured()) {
+    if (auth.status !== "signed_in") {
       setCheckoutCustomData(undefined);
       return;
     }
-    function syncCustomData() {
-      void getCurrentUser().then((user) => {
-        if (!user) {
-          setCheckoutCustomData(undefined);
-          return;
-        }
-        const next: Record<string, unknown> = { supabase_user_id: user.id };
-        if (user.email) next.email = user.email;
-        setCheckoutCustomData(next);
-      });
-    }
-
-    syncCustomData();
-
-    let supabase: ReturnType<typeof getSupabaseClient>;
-    try {
-      supabase = getSupabaseClient();
-    } catch {
-      return;
-    }
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      syncCustomData();
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+    const next: Record<string, unknown> = { supabase_user_id: auth.user.id };
+    if (auth.user.email) next.email = auth.user.email;
+    setCheckoutCustomData(next);
+  }, [auth]);
 
   React.useEffect(() => {
     let cancelled = false;
